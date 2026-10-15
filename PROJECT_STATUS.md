@@ -1,6 +1,6 @@
 # 项目状态
 
-**当前版本：1.0.0**
+**当前版本：1.0.1**
 **状态：** 已在本机桌面 profile 上安装并实测运行
 **上游：** [`dsh-mcp-toggle`](https://www.npmjs.com/package/dsh-mcp-toggle) v1.0.1（已停更）
 
@@ -20,6 +20,7 @@
 | 单条开关，且**真正注销**工具 | ✅ 实测 | 关闭后 `tools: 0`；重开后 `tools: 207` |
 | 落盘为覆盖行，重启后生效 | ✅ 实测 | `cordis.patch.yml` 286 B → 319 B，单条覆盖行 |
 | 写前备份 + 自动清理（保留 10 份） | ✅ 实测 | `backupPath` 字段；单测覆盖 |
+| 备份名带序号，同毫秒不互相覆盖 | ✅ 测试 | `backupNameFor` 单测 + 连续 4 次写入留下 4 份不同文件 |
 | 幂等写路径（同态不写文件） | ✅ 测试 | 同态返回 `mode: 'unchanged'` / `changed: false` |
 | 批量启用 / 停用 | ✅ 已实现 | `POST {"action":"disable-all"\|"enable-all"}` |
 | 中英双语界面与文档 | ✅ 已实现 | `docs-parity` 测试守卫 |
@@ -41,9 +42,11 @@
 本插件是在**本机桌面 profile** 上开发并实测的。
 
 - 插件源目录：`~/.dsh/plugins/dsh-mcp-control`
-- DSH 装入 profile 时按 `package.json` 的 `files` 白名单**投影**一份到
-  `~/.dsh/profiles/desktop/node_modules/dsh-mcp-control`。
-  **因此改了源码要重新 `dsh plugin add` 一次**——编辑源目录不会自动进入投影。
+- **装进 profile 的形态要量，不要假设。** 实测两种都存在，行为不同：
+  `link:<目录>` → `node_modules` 里是**符号链接**，源码即运行物，`files` 不参与过滤；
+  `file:<目录>` → 是**经 `files` 白名单过滤的副本**，改源码必须重新 `add` 一次。
+  本机当前是 `link:`（`readlinkSync` 可验），所以改源码立刻到位，
+  但宿主侧的 ESM 缓存仍需重启 DSH 才重新求值——见 `AGENTS.md` 的 Install / reload。
 - 被实测的服务器 `rea` 是 HOME 层的一行 `@deepseek-ai/dsh-mcp-client`。
 
 ## 下一步（有意未做）

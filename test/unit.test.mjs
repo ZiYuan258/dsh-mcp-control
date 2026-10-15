@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { join, sep } from 'node:path'
 
 import {
+  backupNameFor,
   estimateTokens,
   fiberPhaseLabel,
   findIdRow,
@@ -230,4 +231,33 @@ test('resolveHomePatchPath honours DSH_HOME and falls back to ~/.dsh', () => {
   assert.equal(resolveHomePatchPath({}, home), join(home, '.dsh', patch))
   assert.equal(resolveHomePatchPath({ DSH_HOME: '' }, home), join(home, '.dsh', patch))
   assert.equal(resolveHomePatchPath({ DSH_HOME: '   ' }, home), join(home, '.dsh', patch))
+})
+
+test('backupNameFor never hands out a name that is already taken', () => {
+  // The regression this pins: backups were named `<stamp>` alone, and the stamp has
+  // only millisecond resolution, so a second write in the same millisecond reused the
+  // name and overwrote the first backup. Two distinct milliseconds are asserted to
+  // behave independently, and the same millisecond is asserted to keep counting up.
+  const base = 'cordis.patch.yml.backup-'
+  const stamp = '2026-10-15T14-27-15-624Z'
+
+  assert.equal(backupNameFor(base, stamp, new Set()), `${base}${stamp}-00`)
+  assert.equal(backupNameFor(base, stamp, new Set([`${base}${stamp}-00`])), `${base}${stamp}-01`)
+  assert.equal(
+    backupNameFor(base, stamp, new Set([`${base}${stamp}-00`, `${base}${stamp}-01`])),
+    `${base}${stamp}-02`,
+  )
+  // A different millisecond starts over at 00 — uniqueness is per timestamp.
+  assert.equal(backupNameFor(base, '2026-10-15T14-27-15-625Z', new Set()), `${base}2026-10-15T14-27-15-625Z-00`)
+})
+
+test('backup names sort chronologically, because prune keeps the newest by name', () => {
+  const base = 'cordis.patch.yml.backup-'
+  const names = [
+    backupNameFor(base, '2026-10-15T14-27-15-624Z', new Set()),
+    backupNameFor(base, '2026-10-15T14-27-15-624Z', new Set([`${base}2026-10-15T14-27-15-624Z-00`])),
+    backupNameFor(base, '2026-10-15T14-27-15-625Z', new Set()),
+  ]
+  // Zero-padding is what makes this hold: a bare counter would sort '-10' before '-9'.
+  assert.deepEqual([...names].sort(), names)
 })

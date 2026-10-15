@@ -131,7 +131,9 @@ bundle  →  profile cordis.patch.yml  →  $DSH_HOME/cordis.patch.yml  →  ove
 上游最大的短板是**改 patch 前不备份**。本分支补上了。
 
 - **写前备份**：每次写入前先把**原文件字节**存为
-  `cordis.patch.yml.backup-<ISO时间戳>`（同目录），响应回传 `backupPath`。
+  `cordis.patch.yml.backup-<ISO时间戳>-<两位序号>`（同目录），响应回传 `backupPath`。
+  序号不是装饰：时间戳只有毫秒精度，同毫秒内的第二次写入会**覆盖**第一份备份
+  （CI 在 Linux 上真的这样丢过 4 份）。序号保证每份都在。
 - **自动清理**：只保留最近 **10** 份，按文件名排序裁掉更旧的。
 - **备份失败不阻断**：备份是尽力而为。真失败了，开关照常生效，
   响应报 `backupError`——**绝不假装备份成功**。

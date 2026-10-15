@@ -115,6 +115,20 @@ test('pruneBackups keeps the newest BACKUP_KEEP copies', async () => {
   })
 })
 
+test('rapid toggles each leave their own backup, even inside one millisecond', async () => {
+  // The regression CI caught on Linux + Node 24. Backup names were `<stamp>` with only
+  // millisecond resolution, so writes landing in the same millisecond reused a name and
+  // the later one overwrote the earlier — four toggles, fewer than four copies. This is
+  // the fast-path case, not an exotic one, so it gets its own test rather than relying
+  // on the prune test to notice by accident.
+  await withHome(SAMPLE, async ({ dir }) => {
+    for (let i = 0; i < 4; i++) await persistDisabled('rea-mcp', i % 2 === 0)
+    const backups = (await readdir(dir)).filter((entry) => entry.startsWith('cordis.patch.yml.backup-'))
+    assert.equal(backups.length, 4, 'every write must leave a copy')
+    assert.equal(new Set(backups).size, 4, 'the copies must be distinct files')
+  })
+})
+
 test('pruneBackups is best-effort on a missing directory', async () => {
   await assert.doesNotReject(pruneBackups(path.join(tmpdir(), 'mcp-control-does-not-exist', 'cordis.patch.yml')))
 })

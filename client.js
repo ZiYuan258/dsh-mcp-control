@@ -28,7 +28,7 @@ window.__ModuleLoader__.load({
     // Kept in step with package.json by tests/package-contract.test.mjs — the two must
     // never drift, because the panel prints this and the manifest is what installs.
     const PACKAGE = 'dsh-mcp-control'
-    const VERSION = '1.0.0'
+    const VERSION = '1.0.1'
 
     const PHASE_LABEL = {
       pending: { zh: '连接中…', en: 'Connecting…' },

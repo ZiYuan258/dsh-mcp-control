@@ -450,14 +450,43 @@ function send(res, status, payload) {
 async function backupPatchFile(file, previousText) {
   if (previousText == null) return { ok: true, skipped: 'no previous file' }
   try {
+    const dir = path.dirname(file)
+    const base = `${path.basename(file)}.backup-`
+    const taken = new Set(await readdir(dir).catch(() => []))
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const target = `${file}.backup-${stamp}`
+    const target = path.join(dir, backupNameFor(base, stamp, taken))
     await writeFile(target, previousText, 'utf8')
     await pruneBackups(file)
     return { ok: true, path: target }
   } catch (error) {
     return { ok: false, error: String(error?.message ?? error) }
   }
+}
+
+/**
+ * Pick a free backup filename: `<base><stamp>-<nn>`.
+ *
+ * The sequence suffix is not decoration. Names used to be `<base><stamp>` alone, and
+ * `stamp` has only millisecond resolution — so two writes inside the same millisecond
+ * produced the SAME name and the second silently OVERWROTE the first. On a fast
+ * filesystem that is routine rather than exotic: CI on Linux + Node 24 ran the prune
+ * test, which writes 12 toggles, and found 8 backup files instead of 10 — only 8
+ * distinct milliseconds had elapsed and four copies were already destroyed. A backup
+ * that quietly loses the copy you need is worse than no backup, so uniqueness is
+ * enforced here instead of assumed from the clock.
+ *
+ * The suffix is zero-padded to a fixed width so a plain lexicographic sort of the names
+ * is still chronological; `pruneBackups` keeps the newest by exactly that sort.
+ */
+export function backupNameFor(base, stamp, taken) {
+  for (let seq = 0; seq < 100; seq++) {
+    const name = `${base}${stamp}-${String(seq).padStart(2, '0')}`
+    if (!taken.has(name)) return name
+  }
+  // Unreachable in practice: it would take 100 writes to one file inside a single
+  // millisecond, and each write is a full async read/write cycle. Kept so that a
+  // pathological clock cannot make the name collide again.
+  return `${base}${stamp}-99-${Math.random().toString(36).slice(2, 8)}`
 }
 
 /** Keep only the most recent BACKUP_KEEP copies, so a chatty UI cannot fill the disk. */

@@ -139,6 +139,15 @@ there (`--use-system-ca`) for hosts with a certificate-inspecting proxy.
    `role="switch"` + `aria-checked` on the toggles.
 10. **Bilingual by data, not by branch.** All strings live in the `TEXT` table as
     `{en, zh}` pairs; `detectLang()` only selects. Adding a string means adding both.
+11. **Backup names carry a sequence suffix — do not "simplify" it away.**
+    `backupNameFor()` always emits `<file>.backup-<stamp>-<nn>`, zero-padded to two
+    digits. The stamp alone is millisecond-resolution, so two writes inside one
+    millisecond produced the *same* name and the later one silently overwrote the
+    earlier. CI found this on Linux + Node 24: the prune test writes 12 toggles and
+    counted 8 files. A backup that quietly loses the copy you need is worse than no
+    backup, so uniqueness is enforced, not assumed. The padding is load-bearing too —
+    `pruneBackups` keeps the newest by lexicographic sort, and an unpadded counter would
+    sort `-10` before `-9`.
 
 ## Install / reload
 

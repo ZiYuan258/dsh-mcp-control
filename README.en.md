@@ -158,8 +158,10 @@ Upstream's weakest point was that it **did not back the patch up before writing*
 This fork does.
 
 - **Backup before write.** Before each write the **original bytes** are saved as
-  `cordis.patch.yml.backup-<ISO timestamp>` in the same directory, and the response
-  reports `backupPath`.
+  `cordis.patch.yml.backup-<ISO timestamp>-<nn>` in the same directory, and the response
+  reports `backupPath`. The sequence suffix is not decoration: the timestamp has only
+  millisecond resolution, so a second write in the same millisecond used to **overwrite**
+  the first backup — CI on Linux really did lose four copies that way.
 - **Automatic pruning.** Only the newest **10** are kept; older ones are dropped by
   filename order.
 - **A failed backup does not block.** Backups are best-effort. If one genuinely fails,

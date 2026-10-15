@@ -49,7 +49,7 @@ it is why section 4 exists.
 **Before every write**, the **original bytes** are saved beside the file:
 
 ```
-cordis.patch.yml.backup-2026-10-15T14-32-07-123Z
+cordis.patch.yml.backup-2026-10-15T14-32-07-123Z-00
 ```
 
 - Only the newest **10** are kept; older ones are dropped by filename order.
