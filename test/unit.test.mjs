@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { join, sep } from 'node:path'
 
 import {
   estimateTokens,
@@ -213,12 +214,20 @@ test('upsertDisabled preserves CRLF endings', () => {
 })
 
 test('resolveHomePatchPath honours DSH_HOME and falls back to ~/.dsh', () => {
-  assert.equal(
-    resolveHomePatchPath({ DSH_HOME: 'C:\\custom' }, 'C:\\Users\\x'),
-    'C:\\custom\\cordis.patch.yml',
-  )
-  assert.equal(
-    resolveHomePatchPath({ DSH_HOME: '   ' }, 'C:\\Users\\x'),
-    'C:\\Users\\x\\.dsh\\cordis.patch.yml',
-  )
+  // This asserts the CONTRACT — which wins, and what filename is appended — never a
+  // platform separator. It once hardcoded 'C:\\custom\\cordis.patch.yml', so all three
+  // Windows jobs passed and all three Linux jobs failed: the implementation was right,
+  // the test was wrong. It demanded that a platform-generic function produce a Windows
+  // path on Linux. Build the expectation with join() so it is true on both.
+  const home = join(sep === '/' ? '/' : 'C:\\', 'Users', 'x')
+  const patch = 'cordis.patch.yml'
+
+  // An explicit DSH_HOME wins, wherever it points.
+  assert.equal(resolveHomePatchPath({ DSH_HOME: join(home, 'custom') }, home), join(home, 'custom', patch))
+  // Surrounding whitespace is trimmed rather than treated as part of the path.
+  assert.equal(resolveHomePatchPath({ DSH_HOME: `  ${join(home, 'custom')}  ` }, home), join(home, 'custom', patch))
+  // Absent, empty and blank all mean "unset" — never '.' and never a root-level path.
+  assert.equal(resolveHomePatchPath({}, home), join(home, '.dsh', patch))
+  assert.equal(resolveHomePatchPath({ DSH_HOME: '' }, home), join(home, '.dsh', patch))
+  assert.equal(resolveHomePatchPath({ DSH_HOME: '   ' }, home), join(home, '.dsh', patch))
 })
