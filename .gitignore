@@ -1,0 +1,11 @@
+node_modules/
+*.log
+*.tgz
+*.bak
+.DS_Store
+Thumbs.db
+
+# Backups written next to the patch file by the plugin itself, if someone ever runs the
+# suite with DSH_HOME pointed at a checkout. They are timestamped snapshots of a file we
+# do not own; committing one would put a stale copy of a *different* file in this repo.
+*.backup-*

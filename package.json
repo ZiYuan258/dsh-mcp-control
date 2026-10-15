@@ -1,0 +1,78 @@
+{
+  "name": "dsh-mcp-control",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server control panel for DSH: enable/disable each @deepseek-ai/dsh-mcp-client server live, see what each one costs in context tokens, and persist the change across restarts. Maintained fork of dsh-mcp-toggle.",
+  "license": "MIT",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "README.md",
+    "README.en.md",
+    "SECURITY.md",
+    "SECURITY.zh.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "mcp",
+    "mcp-client",
+    "model-context-protocol",
+    "settings",
+    "toggle",
+    "token-cost",
+    "cordis"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZiYuan258/dsh-mcp-control.git"
+  },
+  "homepage": "https://github.com/ZiYuan258/dsh-mcp-control#readme",
+  "bugs": {
+    "url": "https://github.com/ZiYuan258/dsh-mcp-control/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/unit.test.mjs test/patch-contract.test.mjs test/write-path.test.mjs test/package-contract.test.mjs test/docs-parity.test.mjs test/release-consistency.test.mjs"
+  },
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.2.0-rc.1"
+    },
+    "requires": [
+      "ctx.effect",
+      "ctx.get",
+      "ctx.webServer.register",
+      "ctx.loader.entries",
+      "ctx.tools.schemas"
+    ],
+    "optional": [
+      "ctx.logger"
+    ],
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  }
+}

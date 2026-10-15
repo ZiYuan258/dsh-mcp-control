@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "MCP Control",
+    "description": "Enable or disable each MCP server live, and see what it costs in context tokens."
+  }
+}

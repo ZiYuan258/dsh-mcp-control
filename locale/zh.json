@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "MCP 控制台",
+    "description": "实时启用/停用每个 MCP 服务器，并显示它占用多少上下文 token。"
+  }
+}

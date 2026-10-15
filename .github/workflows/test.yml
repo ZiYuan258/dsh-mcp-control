@@ -1,0 +1,41 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege, declared explicitly. Without this block the run gets the repository
+# default for GITHUB_TOKEN, which is broader than a checkout-and-test job needs — and any
+# code that executes inside the job (a third-party action, a hijacked dependency) inherits
+# whatever that token can do. This job only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One failing leg must not cancel the others. GitHub's fail-fast cancels the rest as
+      # soon as the first leg fails, so a real failure on every platform gets reported as
+      # one failure plus a row of "cancelled" — which is exactly how a genuine multi-leg
+      # failure gets misread as a single failure.
+      fail-fast: false
+      matrix:
+        # Windows is a first-class target, not an afterthought: every path in this plugin is
+        # a Windows path in practice (drive letters, backslashes, junctions), the plugin is
+        # developed on Windows, and `resolveHomePatchPath()` carries the `DSH_HOME` and
+        # `~\\.dsh` fallbacks. Testing only Linux would leave the main platform unverified.
+        os: [ubuntu-latest, windows-latest]
+        node: ['20.x', '22.x', '24.x']
+    steps:
+      # Pinned to a major version tag, never @main: a floating ref lets the action's
+      # owner change what runs in this job without a commit here.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+      # No install step on purpose: the plugin has zero runtime dependencies and the suite
+      # builds its own fixtures (including a temp `DSH_HOME`), so a bare clone is enough.
+      - run: npm test
