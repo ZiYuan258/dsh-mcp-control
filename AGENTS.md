@@ -146,13 +146,19 @@ there (`--use-system-ca`) for hosts with a certificate-inspecting proxy.
 dsh plugin --profile desktop add "C:\Users\21450\.dsh\plugins\dsh-mcp-control"
 ```
 
-**The profile does not read this directory directly.** DSH installs the package by
-*projecting* it: it copies the files named in `package.json`'s `files` whitelist into
-`$DSH_HOME/profiles/<profile>/node_modules/dsh-mcp-control`. Editing a source file here
-therefore changes nothing until the plugin is re-added — verified by checking the
-projection, not assumed. Anything a runtime file needs must be in `files`;
-`test/package-contract.test.mjs` checks that `index.js`, `client.js`, `cordis.patch.yml`,
-`locale/` and `icon.svg` are all covered.
+**Check how the profile points at this directory; do not assume.** Two shapes were both
+observed on this host, and they behave differently:
+
+| Profile dependency spec | `node_modules/dsh-mcp-control` | Effect |
+| --- | --- | --- |
+| `link:<dir>` | **symlink** to this directory | the source *is* what runs; `files` filters nothing |
+| `file:<dir>` | a **`files`-filtered copy** | source edits are invisible until re-added |
+
+Verify with `fs.readlinkSync` / `fs.realpathSync`, not by reading the manifest. After the
+first `install_bundle` here the spec was `link:`, so `test/`, `tools/` and `.git` are all
+visible through `node_modules` — harmless, but it means a stray runtime import of a file
+outside `files` would work locally and break for anyone installing from npm. That is what
+`test/package-contract.test.mjs` checks: everything the runtime needs is in `files`.
 
 A **patch-file** change hot-applies: `dsh-hmr` watches `profile.patchPath` and the home
 patch, so toggling takes effect with no restart (that is the whole point of the plugin).
@@ -174,6 +180,22 @@ cached instance. **Bouncing the bundle through `plugin_manager set_bundle` does 
 this** — it re-reconciles the patch rows, but the module stays cached. Expect to restart
 DSH after editing a host half. The client half is fetched by the browser, so a hard
 refresh is enough there.
+
+**The consequence is worse than "my edit is not live yet", and it actually happened here.**
+The plugin was first installed *before* the backup code existed. A toggle served by that
+cached module at 22:05 wrote `disabled: true` into the home patch **and left no
+`cordis.patch.yml.backup-*` file**, because the running code had no `backupPatchFile` at
+all. Nothing in the response said so. So after any change to the write path:
+
+1. confirm `install_bundle` returned `application: "applied"` — `"restart-required"` means
+   the old code is still serving requests;
+2. if it says `restart-required`, **do not treat the hardening as deployed**, and do not
+   exercise the panel until DSH restarts;
+3. when a write path changes, re-verify the artefact that proves it (here: that a
+   `.backup-*` file appears), not just the response body.
+
+"`persisted: true`" only ever means the file changed. It has never meant the code that
+changed it was the code you just wrote.
 
 If the panel is missing after install, check whether the bundle's own `cordis.patch.yml`
 was picked up (the row is `mcp-control`, **not** `dsh-mcp-control`) — the bundle patch is
