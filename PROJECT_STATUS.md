@@ -4,6 +4,11 @@
 **状态：** 已在本机桌面 profile 上安装并实测运行
 **上游：** [`dsh-mcp-toggle`](https://www.npmjs.com/package/dsh-mcp-toggle) v1.0.1（已停更）
 
+**宿主版本验证记录：** DSH 44.0.0 ✅（首次全链路实测）｜ DSH 44.7.0 ✅（2026-10-17 复验：
+路由存活、开关往返 207→0→207、备份文件带序号落盘、真实 `applyEntryPatches` 复跑零警告、
+`include:mcp-control` 条目 active、65/65 测试通过。44.7.0 的 `dsh-mcp-client` 仍是急切全量注册，
+无懒加载路径——「关掉=真省」的前提未变）
+
 ---
 
 ## 一句话
