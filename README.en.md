@@ -20,7 +20,7 @@ single request**. The heavier the server, the more it costs:
 
 | Server | Tools | Model-facing schema bytes | Per turn |
 |---|---|---|---|
-| `rea` (measured on this machine) | 207 | 785,262 B | **~196K tokens** |
+| `rea` (measured on this machine) | 207 | 766,054 B | **~191K tokens** |
 
 That is not an estimate; it is what the panel reads back from `ctx.tools.schemas()`.
 Inside a 320K-token prefix, one server owns three fifths of it — which decides whether
@@ -85,9 +85,9 @@ Measured on this machine (desktop profile, server `rea`):
 
 | Step | Result |
 |---|---|
-| Before | `enabled: true`, `fiberPhase: active`, `tools: 207`, `estTokens: 196316` |
+| Before | `enabled: true`, `fiberPhase: active`, `tools: 207`, `estTokens: 191514` |
 | After disable | `enabled: false`, `fiberPhase: null` (fiber disposed), **`tools: 0`**, `estTokens: 0` |
-| After re-enable | `enabled: true`, `fiberPhase: active`, `tools: 207`, `estTokens: 196316` |
+| After re-enable | `enabled: true`, `fiberPhase: active`, `tools: 207`, `estTokens: 191514` |
 
 `tools: 0` is the point: it comes from `ctx.tools.schemas()`, the table of what is
 **actually registered right now**. It is not this plugin's own accounting — it is the
@@ -229,14 +229,14 @@ Zero dependencies, using Node's built-in `node:test`.
     "enabled": true,
     "fiberPhase": "active",
     "toolCount": 207,
-    "schemaBytes": 785262,
-    "estTokens": 196316,
-    "breakdown": { "nameBytes": 6148, "descriptionBytes": 90143, "parameterBytes": 688971 },
+    "schemaBytes": 766054,
+    "estTokens": 191514,
+    "breakdown": { "nameBytes": 6148, "descriptionBytes": 92265, "parameterBytes": 667641 },
     "layer": "home"
   }],
   "totals": { "servers": 1, "enabled": 1, "disabled": 0, "mcpToolCount": 207,
-              "mcpSchemaBytes": 785262, "mcpEstTokens": 196316,
-              "activeEstTokens": 196316, "bytesPerToken": 4 },
+              "mcpSchemaBytes": 766054, "mcpEstTokens": 191514,
+              "activeEstTokens": 191514, "bytesPerToken": 4 },
   "patchPath": "C:\\Users\\<you>\\.dsh\\cordis.patch.yml",
   "layersReadable": true
 }

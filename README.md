@@ -18,7 +18,7 @@ DSH 的 MCP 服务器是**常驻成本**。服务器连接后，它每个工具�
 
 | 服务器 | 工具数 | 模型可见的模式字节 | 折合每轮 |
 |---|---|---|---|
-| `rea`（本机实测） | 207 | 785,262 B | **~196K token** |
+| `rea`（本机实测） | 207 | 766,054 B | **~191K token** |
 
 这不是估算，是面板读 `ctx.tools.schemas()` 得到的实测值。
 在 320K token 的前缀里，它一个人占了六成——决定了一轮请求还能不能塞下别的。
@@ -70,9 +70,9 @@ loader: Entry#update({disabled:true})
 
 | 步骤 | 结果 |
 |---|---|
-| 关闭前 | `enabled: true`，`fiberPhase: active`，`tools: 207`，`estTokens: 196316` |
+| 关闭前 | `enabled: true`，`fiberPhase: active`，`tools: 207`，`estTokens: 191514` |
 | 关闭后 | `enabled: false`，`fiberPhase: null`（fiber 已销毁），**`tools: 0`**，`estTokens: 0` |
-| 重开后 | `enabled: true`，`fiberPhase: active`，`tools: 207`，`estTokens: 196316` |
+| 重开后 | `enabled: true`，`fiberPhase: active`，`tools: 207`，`estTokens: 191514` |
 
 `tools: 0` 是关键——它读的是 `ctx.tools.schemas()`，即**当前真正注册在案**的工具表。
 不是本插件自己记的账，是问的工具服务本身。
@@ -193,14 +193,14 @@ test/release-consistency.test.mjs  每个版本都有发布说明
     "enabled": true,
     "fiberPhase": "active",
     "toolCount": 207,
-    "schemaBytes": 785262,
-    "estTokens": 196316,
-    "breakdown": { "nameBytes": 6148, "descriptionBytes": 90143, "parameterBytes": 688971 },
+    "schemaBytes": 766054,
+    "estTokens": 191514,
+    "breakdown": { "nameBytes": 6148, "descriptionBytes": 92265, "parameterBytes": 667641 },
     "layer": "home"
   }],
   "totals": { "servers": 1, "enabled": 1, "disabled": 0, "mcpToolCount": 207,
-              "mcpSchemaBytes": 785262, "mcpEstTokens": 196316,
-              "activeEstTokens": 196316, "bytesPerToken": 4 },
+              "mcpSchemaBytes": 766054, "mcpEstTokens": 191514,
+              "activeEstTokens": 191514, "bytesPerToken": 4 },
   "patchPath": "C:\\Users\\<you>\\.dsh\\cordis.patch.yml",
   "layersReadable": true
 }

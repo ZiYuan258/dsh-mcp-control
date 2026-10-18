@@ -126,7 +126,7 @@ there (`--use-system-ca`) for hosts with a certificate-inspecting proxy.
    prefix, so a built-in tool is never attributed to a server. It measures the
    *model-facing* projection — `name` + `description` + `JSON.stringify(parameters)` —
    which is why an advertised `outputSchema` is correctly absent (DSH forwards only
-   `parameters`). Measured on REA: 785,262 B ≈ 196K tokens/request. `BYTES_PER_TOKEN = 4`
+   `parameters`). Measured on REA: 766,054 B ≈ 191K tokens/request. `BYTES_PER_TOKEN = 4`
    is a rough constant on purpose; do not present the estimate as exact.
 7. **Never throw across the HTTP route.** Every response is JSON, failures included.
    Status map: 400 bad body/non-MCP row, 403 empty `entryId` or locked row, 404 unknown

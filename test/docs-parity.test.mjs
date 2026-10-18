@@ -42,7 +42,7 @@ function encodingProblems(file) {
  * 两份文件：相同的标题骨架、代码块数、表格行数，以及一组逐字相同的事实。
  *
  * 事实清单里放的是**数字与标识符**，不放句子：句子该随语言不同，数字不该。
- * 785,262 与 196316 在两个文件里必须是同一串字符，否则两个读者会得到两个成本观。
+ * 766,054 与 191514 在两个文件里必须是同一串字符，否则两个读者会得到两个成本观。
  */
 function checkPair(label, defaultFile, alternateFile, facts) {
   const a = read(defaultFile)
@@ -93,9 +93,9 @@ function checkPair(label, defaultFile, alternateFile, facts) {
 test('README 中英结构对齐且共享事实一致', () => {
   const stats = checkPair('README', 'README.md', 'README.en.md', [
     // 成本实测值：两个文件必须印同一组数字。
-    '785,262 B',
-    '196316',
-    '196K',
+    '766,054 B',
+    '191514',
+    '191K',
     '207',
     // 上下文与层序。
     '320K',
