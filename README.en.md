@@ -26,7 +26,7 @@ That is not an estimate; it is what the panel reads back from `ctx.tools.schemas
 Inside a 320K-token prefix, one server owns three fifths of it — which decides whether
 a request can carry anything else at all.
 
-The plugin adds one settings page (**Settings → MCP Control**) that does three things:
+The plugin adds one panel that does three things:
 
 1. **Show** how many tools each MCP server has registered, how many bytes that is,
    and what it costs in tokens.
@@ -34,6 +34,29 @@ The plugin adds one settings page (**Settings → MCP Control**) that does three
    **full** amount, rather than hiding them.
 3. **Remember** the choice by writing an override row into `$DSH_HOME/cordis.patch.yml`,
    so it survives a restart.
+
+The panel lives in **Settings → MCP Control** by default, and can move to the left
+sidebar instead — see *Panel entry*.
+
+## Panel entry
+
+One page, two seats: **a page inside Settings**, or **a row of icons in the left
+sidebar**. The default is the settings page, because an upgrade should never move a
+panel nobody asked to move.
+
+To move it, open **Settings → Plugins → dsh-mcp-control**; the "Panel entry" card there
+changes it at any time:
+
+| Choice | The panel appears as |
+|---|---|
+| Sidebar only | one icon row in the left sidebar (the settings section unregisters) |
+| Settings only | one page inside Settings (the sidebar row unregisters) |
+
+**Only one seat exists at a time** — the seat being unregistered is deselected first, so
+no icon is left pointing at nothing. The preference lives in
+`$DSH_HOME/dsh-mcp-control/state.json` and is **never** written into
+`cordis.patch.yml`: a patch states composition, no composition reads this value, and
+putting it there would wake the patch watcher to replay composition on every click.
 
 ## What it is not
 
@@ -211,6 +234,7 @@ test/write-path.test.mjs           write-path contract: backups, idempotence, no
 test/package-contract.test.mjs     version consistency, files whitelist, no runtime @deepseek-ai dep
 test/docs-parity.test.mjs          zh/en README section parity, bilingual release-note structure
 test/release-consistency.test.mjs  every version has a release note
+test/panel-entry.test.mjs          panel seats, state-file round trip, slot register/unregister
 ```
 
 Zero dependencies, using Node's built-in `node:test`.
@@ -238,19 +262,28 @@ Zero dependencies, using Node's built-in `node:test`.
               "mcpSchemaBytes": 766054, "mcpEstTokens": 191514,
               "activeEstTokens": 191514, "bytesPerToken": 4 },
   "patchPath": "C:\\Users\\<you>\\.dsh\\cordis.patch.yml",
-  "layersReadable": true
+  "layersReadable": true,
+  "panelEntry": "settings",
+  "panelEntryFile": "<DSH_HOME>/dsh-mcp-control/state.json"
 }
 ```
 
-`POST /mcp-control/api`, one of two shapes:
+(`panelEntryError` appears only when the state file exists but cannot be read.)
+
+`POST /mcp-control/api`, one of three shapes:
 
 ```json
 { "entryId": "include:rea-mcp", "disabled": true }
 { "action": "disable-all" }
+{ "action": "set-panel-entry", "entry": "sidebar" }
 ```
 
 Single-toggle response: `{ ok, entryId, rawId, serverName, disabled, fiberPhase,
 persisted, persistMode, patchPath, backupPath?, persistError? }`
+
+Panel-entry response: `{ ok, action: "set-panel-entry", panelEntry, panelEntryFile }`.
+An `entry` that is neither `sidebar` nor `settings` is **400** — refused rather than
+substituted for a valid one; a failed write is **500**, leaving the state file as it was.
 
 | Status | Meaning |
 |---|---|

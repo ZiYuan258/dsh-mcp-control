@@ -23,11 +23,30 @@ DSH 的 MCP 服务器是**常驻成本**。服务器连接后，它每个工具�
 这不是估算，是面板读 `ctx.tools.schemas()` 得到的实测值。
 在 320K token 的前缀里，它一个人占了六成——决定了一轮请求还能不能塞下别的。
 
-本插件给你一个设置页（**设置 → MCP 控制台**），做三件事：
+本插件给你一个面板，做三件事：
 
 1. **看见**：每个 MCP 服务器当前注册了多少工具、占多少字节、折合多少 token；
 2. **开关**：关掉即**真正注销**它的全部工具，省下**全额** token，而不是"隐藏"；
 3. **记住**：写入 `$DSH_HOME/cordis.patch.yml` 的覆盖行，重启后依然生效。
+
+面板默认住在**设置 → MCP 控制台**，也可以搬到左侧边栏——见《面板入口》。
+
+## 面板入口
+
+同一个页面，两个座位：**设置里的一个页面**，或**左侧边栏的一行图标**。
+默认是设置页，因为升级不该把面板搬到没人要求搬的地方。
+
+要挪位置，去**设置 → 插件 → dsh-mcp-control**，"面板入口"卡片里随时可以改：
+
+| 选择 | 面板出现在 |
+|---|---|
+| 仅侧栏 | 左侧边栏一行图标（设置页那一节同时注销） |
+| 仅设置页 | 设置里的一个页面（侧栏那一行同时注销） |
+
+两个座位**任一时刻只保留一个**——注销当前座位前会先取消选中，
+不会留下一个点了没反应的图标。偏好存在 `$DSH_HOME/dsh-mcp-control/state.json`，
+**不写进** `cordis.patch.yml`：补丁表达的是"组成"，而这个值任何组成都不读，
+写进去只会让每次点击都唤醒 patch watcher 重放一遍组成。
 
 ## 它不是什么
 
@@ -175,6 +194,7 @@ test/write-path.test.mjs           写路径契约：备份、幂等、失败不
 test/package-contract.test.mjs     版本一致性、files 白名单、无 @deepseek-ai 运行时依赖
 test/docs-parity.test.mjs          中英 README 章节对齐、发布说明双语结构
 test/release-consistency.test.mjs  每个版本都有发布说明
+test/panel-entry.test.mjs          面板入口：座位词汇、状态文件往返、槽位注册/注销
 ```
 
 零依赖，用 Node 内置 `node:test`。
@@ -202,19 +222,28 @@ test/release-consistency.test.mjs  每个版本都有发布说明
               "mcpSchemaBytes": 766054, "mcpEstTokens": 191514,
               "activeEstTokens": 191514, "bytesPerToken": 4 },
   "patchPath": "C:\\Users\\<you>\\.dsh\\cordis.patch.yml",
-  "layersReadable": true
+  "layersReadable": true,
+  "panelEntry": "settings",
+  "panelEntryFile": "<DSH_HOME>/dsh-mcp-control/state.json"
 }
 ```
 
-`POST /mcp-control/api`，二选一：
+（`panelEntryError` 只在状态文件存在但读不出来时出现。）
+
+`POST /mcp-control/api`，三选一：
 
 ```json
 { "entryId": "include:rea-mcp", "disabled": true }
 { "action": "disable-all" }
+{ "action": "set-panel-entry", "entry": "sidebar" }
 ```
 
 单条响应：`{ ok, entryId, rawId, serverName, disabled, fiberPhase, persisted,
 persistMode, patchPath, backupPath?, persistError? }`
+
+面板入口响应：`{ ok, action: "set-panel-entry", panelEntry, panelEntryFile }`。
+`entry` 不是 `sidebar` / `settings` 之一时返回 **400**——拒绝而不是替换成合法值；
+写入失败返回 **500**，状态文件保持原样。
 
 | 状态码 | 含义 |
 |---|---|

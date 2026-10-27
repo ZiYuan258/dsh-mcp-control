@@ -26,7 +26,7 @@
  *   - every failure returns JSON, never a non-JSON 500.
  */
 
-import { readFile, writeFile, readdir, rm } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, readdir, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 
@@ -60,9 +60,51 @@ const BYTES_PER_TOKEN = 4
  */
 const BACKUP_KEEP = 10
 
+/**
+ * The seats this plugin's panel is allowed to occupy.
+ *
+ * Exported and shared by the host validator and the client's option list, because two
+ * copies of this list would eventually disagree — and the disagreement would surface as
+ * a value the UI happily renders but the host rejects.
+ */
+export const PANEL_ENTRY_VALUES = ['sidebar', 'settings']
+
+/**
+ * Where the panel goes when nothing has been chosen yet.
+ *
+ * Deliberately `'settings'`, which is NOT the default the reference implementation
+ * (dsh-providers-hub) picked. The rule is not "match the reference", it is "never move a
+ * panel the user did not ask to move": every install that predates this option renders
+ * in the settings page, so a `'sidebar'` default would silently relocate a page on
+ * upgrade. A new option has to be inert until someone chooses it.
+ */
+export const DEFAULT_PANEL_ENTRY = 'settings'
+
 /* -------------------------------------------------------------------------- */
 /* pure helpers — no I/O, so they are unit-testable without a DSH process      */
 /* -------------------------------------------------------------------------- */
+
+/** Is this exactly one of the two seats? The single source of truth for validation. */
+export function isPanelEntry(value) {
+  return typeof value === 'string' && PANEL_ENTRY_VALUES.includes(value)
+}
+
+/**
+ * Normalise a stored panel seat.
+ *
+ * Only an exact member of {@link PANEL_ENTRY_VALUES} survives; everything else — a
+ * missing key, a hand-edited file, a half-written file, a number — falls back to
+ * {@link DEFAULT_PANEL_ENTRY}.
+ *
+ * Note the direction. An unreadable preference resolves to the *default*, never to
+ * "the last value we saw": a fallback that guessed would make a read failure
+ * indistinguishable from a user decision, which is the one bug this option must not
+ * have. {@link writePanelEntry} is the opposite case — it rejects rather than coerces,
+ * because there the value is an instruction, not a memory.
+ */
+export function sanitizePanelEntry(raw) {
+  return isPanelEntry(raw) ? raw : DEFAULT_PANEL_ENTRY
+}
 
 export function fiberPhaseLabel(phase) {
   if (phase === null || phase === undefined) return null
@@ -280,6 +322,19 @@ export function resolveDshHome(env = process.env, home = os.homedir()) {
   return env.DSH_HOME && String(env.DSH_HOME).trim() ? String(env.DSH_HOME).trim() : path.join(home, '.dsh')
 }
 
+/**
+ * Resolve this plugin's own state file: $DSH_HOME/dsh-mcp-control/state.json.
+ *
+ * Deliberately NOT the patch layer. The patch file expresses composition — which
+ * plugins exist and with what config — and this plugin's standing contract is to touch
+ * it only by appending one line-wise `disabled:` override. A UI preference kept there
+ * would wake the patch watcher and re-apply a composition on every click, for a value
+ * no composition ever reads.
+ */
+export function resolveStatePath(env = process.env, home = os.homedir()) {
+  return path.join(resolveDshHome(env, home), 'dsh-mcp-control', 'state.json')
+}
+
 /* -------------------------------------------------------------------------- */
 /* patch layer inspection                                                     */
 /* -------------------------------------------------------------------------- */
@@ -392,6 +447,7 @@ async function buildSnapshot(ctx) {
   }
 
   const enabled = servers.filter((server) => server.enabled)
+  const state = await readState()
   return {
     ok: true,
     servers,
@@ -407,6 +463,11 @@ async function buildSnapshot(ctx) {
     },
     patchPath: resolveHomePatchPath(),
     layersReadable: servers.every((server) => server.layers.every((layer) => layer.readable)),
+    // The client needs the panel seat before it can decide which slot to register, so it
+    // rides along on the snapshot it already fetches rather than on a second endpoint.
+    panelEntry: state.panelEntry,
+    panelEntryFile: state.file,
+    panelEntryError: state.error,
   }
 }
 
@@ -529,6 +590,58 @@ export async function persistDisabled(rawId, disabled) {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* panel entry preference                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Read the panel-seat preference from this plugin's own state file.
+ *
+ * Never throws. A missing file is the ordinary first-run state (`ok: true`, documented
+ * default); an unreadable or unparseable file is reported (`ok: false` plus `error`)
+ * while the caller still receives the default. The file is left exactly as found — a
+ * damaged state file is something to report, not something to silently repair, because
+ * overwriting it would erase the only evidence of what actually went wrong.
+ */
+export async function readState(env = process.env, home = os.homedir()) {
+  const file = resolveStatePath(env, home)
+  try {
+    const parsed = JSON.parse(await readFile(file, 'utf8'))
+    return { ok: true, file, panelEntry: sanitizePanelEntry(parsed?.panelEntry) }
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return { ok: true, file, panelEntry: DEFAULT_PANEL_ENTRY }
+    return { ok: false, file, panelEntry: DEFAULT_PANEL_ENTRY, error: String(error?.message ?? error) }
+  }
+}
+
+/**
+ * Persist the panel seat.
+ *
+ * Rejects a value outside {@link PANEL_ENTRY_VALUES} rather than coercing it: here the
+ * value is an instruction, and turning a bad instruction into a valid one would move a
+ * panel nobody asked to move — with no way for the user to notice it happened.
+ *
+ * Written as `<file>.tmp` then renamed, so a crash mid-write cannot leave a half file
+ * that the next read has to guess about.
+ */
+export async function writePanelEntry(entry, env = process.env, home = os.homedir()) {
+  if (!isPanelEntry(entry)) {
+    return { ok: false, invalid: true, error: `entry must be one of: ${PANEL_ENTRY_VALUES.join(', ')}` }
+  }
+
+  const file = resolveStatePath(env, home)
+  const tmp = `${file}.tmp`
+  try {
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(tmp, `${JSON.stringify({ panelEntry: entry }, null, 2)}\n`, 'utf8')
+    await rename(tmp, file)
+    return { ok: true, file, panelEntry: entry }
+  } catch (error) {
+    await rm(tmp, { force: true }).catch(() => {})
+    return { ok: false, error: String(error?.message ?? error) }
+  }
+}
+
 function isMcpEntry(entry) {
   return entry?.options?.name === MCP_CLIENT_PLUGIN
 }
@@ -560,6 +673,22 @@ export function apply(ctx) {
       }
 
       const payload = body.value ?? {}
+
+      // Panel seat. Validated against the shared list, then written to this plugin's own
+      // state file — never the patch layer. A value that is not one of the two seats is
+      // rejected rather than coerced: assuming a typo meant one of them would relocate a
+      // page the user never asked to move.
+      if (payload.action === 'set-panel-entry') {
+        const written = await writePanelEntry(payload.entry)
+        if (written.invalid) return send(res, 400, { ok: false, error: written.error })
+        if (!written.ok) return send(res, 500, { ok: false, error: written.error })
+        return send(res, 200, {
+          ok: true,
+          action: 'set-panel-entry',
+          panelEntry: written.panelEntry,
+          panelEntryFile: written.file,
+        })
+      }
 
       // Bulk: the usual intent is "everything off, then enable the one I need".
       if (payload.action === 'disable-all' || payload.action === 'enable-all') {

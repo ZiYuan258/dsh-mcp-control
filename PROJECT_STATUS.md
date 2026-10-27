@@ -1,13 +1,18 @@
 # 项目状态
 
-**当前版本：1.0.1**
+**当前版本：1.1.0**
 **状态：** 已在本机桌面 profile 上安装并实测运行
 **上游：** [`dsh-mcp-toggle`](https://www.npmjs.com/package/dsh-mcp-toggle) v1.0.1（已停更）
 
 **宿主版本验证记录：** DSH 44.0.0 ✅（首次全链路实测）｜ DSH 44.7.0 ✅（2026-10-17 复验：
 路由存活、开关往返 207→0→207、备份文件带序号落盘、真实 `applyEntryPatches` 复跑零警告、
 `include:mcp-control` 条目 active、65/65 测试通过。44.7.0 的 `dsh-mcp-client` 仍是急切全量注册，
-无懒加载路径——「关掉=真省」的前提未变）
+无懒加载路径——「关掉=真省」的前提未变）｜ DSH **0.2.1-rc.3** ✅（2026-10-27 复验：
+`cordis-plugin-include` 1.0.10 / `cordis-plugin-loader` 1.0.6 / `dsh-mcp-client` 0.2.1-rc.3 三个
+模块与 44.7.0 时期的 dump **逐字节相同**（sha256 前 16 位全等），`applyEntryPatches` 仍在
+`cordis-plugin-include/lib/index.js:56` 并照旧导出；真实 applier dry-run → `warnings: 0`、
+`row resolved: YES`、`disabled: true`、`name`/`config` 原样、home patch 逐字节未变、
+二次 toggle 恰好一行 override；84/84 测试通过；面板路由 200。**结论：无需适配。**）
 
 ---
 
@@ -31,6 +36,7 @@
 | 中英双语界面与文档 | ✅ 已实现 | `docs-parity` 测试守卫 |
 | 补丁语义测试（金丝雀） | ✅ 已用真实模块验证 | 真实 `applyEntryPatches` → `warnings: 0` |
 | 面板在设置里挂载 | ✅ 实测 | `settings.section` 占用者 `mcp-control`，order 70 |
+| 面板入口可换座位（侧栏 / 设置页） | ✅ 测试（19 项） | `panel-entry.test.mjs`；两座位互斥、偏好存 `state.json` |
 
 ## 已知边界（不是 bug，是范围）
 

@@ -70,7 +70,7 @@ client.js                    browser half — the settings panel (hand-written C
 cordis.patch.yml             the bundle patch that inserts this plugin's row
 locale/{en,zh}.json          display metadata (meta.title / meta.description)
 icon.svg                     panel icon
-test/                        six dependency-free suites, run by `npm test`
+test/                        seven dependency-free suites, run by `npm test`
 tools/publish-release.mjs    release-flow step 5 (tag ≠ Release)
 docs/release-notes-v*.md     one bilingual file per released version
 README.md / README.en.md     user-facing, structurally mirrored
@@ -91,6 +91,7 @@ them against `package.json`'s `test` script and against the README test tables:
 | `test/package-contract.test.mjs` | manifest: version parity, `files` covers runtime, no deps, CJS shape |
 | `test/docs-parity.test.mjs` | bilingual structure, shared numbers, no BOM/CRLF |
 | `test/release-consistency.test.mjs` | test chain ↔ README tables ↔ release notes |
+| `test/panel-entry.test.mjs` | panel seats, state file round trip, slot register/unregister |
 
 ## Release flow
 
@@ -134,9 +135,9 @@ there (`--use-system-ca`) for hosts with a certificate-inspecting proxy.
 8. **Locked ids stay locked**: `include`, `cordis:include`, `dsh-mcp-control`,
    `dsh-mcp-toggle`. The plugin must not be able to toggle itself or the patch root.
 9. **Client UI**: theme tokens only (`--dsw-alias-*`), no hardcoded colours, no
-   `font-family`. Slot `settings.section`, id `mcp-control`, order 70. Use a **fresh** id —
-   reusing a shipped one (e.g. `plugins`) would *replace* that section. Keep
-   `role="switch"` + `aria-checked` on the toggles.
+   `font-family`. Use a **fresh** slot id — reusing a shipped one (e.g. `plugins`) would
+   *replace* that section. Keep `role="switch"` + `aria-checked` on the toggles.
+   Two seats exist and are mutually exclusive (rule 12).
 10. **Bilingual by data, not by branch.** All strings live in the `TEXT` table as
     `{en, zh}` pairs; `detectLang()` only selects. Adding a string means adding both.
 11. **Backup names carry a sequence suffix — do not "simplify" it away.**
@@ -148,6 +149,20 @@ there (`--use-system-ca`) for hosts with a certificate-inspecting proxy.
     backup, so uniqueness is enforced, not assumed. The padding is load-bearing too —
     `pruneBackups` keeps the newest by lexicographic sort, and an unpadded counter would
     sort `-10` before `-9`.
+12. **The two panel seats are mutually exclusive, and the default never moves.**
+    `sidebar.panellist` (id `mcp-control`, order 21) and `settings.section`
+    (id `mcp-control`, order 70) exist **one at a time**, driven by `panelEntry` in
+    `$DSH_HOME/dsh-mcp-control/state.json`. Three consequences, all test-pinned:
+    (a) the sidebar row's `id` must equal the `main` panel's `key` — that equality *is*
+    the wiring, so never introduce a second constant; (b) unregistering the sidebar row
+    must call `layout.selectPanel(null)` **before** it disappears, or the UI is left
+    pointing at a panel id that no longer exists; (c) `DEFAULT_PANEL_ENTRY` stays
+    `'settings'` even though the reference implementation uses `'sidebar'` — an upgrade
+    must never move a panel nobody asked to move. The preference is **not** written into
+    `cordis.patch.yml`: a patch states composition, and no composition reads this value.
+    Read direction (`sanitizePanelEntry`) falls back and never writes back; write
+    direction (`writePanelEntry`) refuses with 400 and writes nothing. A corrupt state
+    file is reported, not repaired.
 
 ## Install / reload
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-mcp-control",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "MCP server control panel for DSH: enable/disable each @deepseek-ai/dsh-mcp-client server live, see what each one costs in context tokens, and persist the change across restarts. Maintained fork of dsh-mcp-toggle.",
@@ -48,7 +48,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test test/unit.test.mjs test/patch-contract.test.mjs test/write-path.test.mjs test/package-contract.test.mjs test/docs-parity.test.mjs test/release-consistency.test.mjs"
+    "test": "node --test test/unit.test.mjs test/patch-contract.test.mjs test/write-path.test.mjs test/package-contract.test.mjs test/docs-parity.test.mjs test/release-consistency.test.mjs test/panel-entry.test.mjs"
   },
   "dsh": {
     "engines": {
