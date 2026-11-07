@@ -74,7 +74,7 @@ lib/catalog.js               official registry search → installable specs
 cordis.patch.yml             the bundle patch that inserts this plugin's row
 locale/{en,zh}.json          display metadata (meta.title / meta.description)
 icon.svg                     panel icon
-test/                        twelve dependency-free suites, run by `npm test`
+test/                        thirteen dependency-free suites, run by `npm test`
 tools/publish-release.mjs    release-flow step 5 (tag ≠ Release)
 docs/release-notes-v*.md     one bilingual file per released version
 README.md / README.en.md     user-facing, structurally mirrored
@@ -101,6 +101,7 @@ them against `package.json`'s `test` script and against the README test tables:
 | `test/scan.test.mjs` | three JSON schemas, TOML extractor, whitelist privacy boundary |
 | `test/catalog.test.mjs` | distribution picking, spec generation, id normalisation |
 | `test/servers-view.test.mjs` | pending (unmounted) rows, per-server call counts, Remove wiring |
+| `test/catalog-view.test.mjs` | catalog view: loads its first page on open, paging appends instead of replacing, search replaces the list |
 
 ## Release flow
 

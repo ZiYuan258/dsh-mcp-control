@@ -1137,16 +1137,28 @@ window.__ModuleLoader__.load({
       const [query, setQuery] = React.useState('')
       const [state, setState] = React.useState({ status: 'idle', entries: [], nextCursor: null, error: '', query: '' })
       const [busy, setBusy] = React.useState(null)
+      const [moreBusy, setMoreBusy] = React.useState(false)
       const [toast, setToast] = React.useState(null)
 
       const t = React.useCallback((key) => (TEXT[key] ? TEXT[key][lang] : key), [lang])
 
       const search = React.useCallback(async (text, cursor) => {
-        setState((prev) => ({ ...prev, status: 'loading' }))
+        // 翻页是「接着看」，不是「换一批」：带游标时把新一页追加到已有列表后面，
+        // 用户往下滚到哪儿就还在哪儿。搜索（无游标）才整体替换。
+        const append = Boolean(cursor)
+        // 翻页时不能把 status 打回 loading —— 那会把已经看到的整列换成一句「加载中」，
+        // 页面高度塌掉、滚动位置丢失。用一个单独的 moreBusy 只让按钮变灰。
+        if (append) setMoreBusy(true)
+        else setState((prev) => ({ ...prev, status: 'loading' }))
         const params = new URLSearchParams({ view: 'catalog', q: text || '' })
         if (cursor) params.set('cursor', cursor)
         const data = await getJson(`?${params.toString()}`)
+        setMoreBusy(false)
         if (!data || data.ok !== true) {
+          if (append) {
+            setToast(`${t('catalogLoadFailed')}: ${(data && data.error) || 'HTTP'}`)
+            return
+          }
           setState({
             status: 'error',
             entries: [],
@@ -1156,13 +1168,30 @@ window.__ModuleLoader__.load({
           })
           return
         }
-        setState({
-          status: 'ready',
-          entries: data.entries || [],
-          nextCursor: data.nextCursor || null,
-          error: '',
-          query: text || '',
+        setState((prev) => {
+          const fresh = data.entries || []
+          let entries = fresh
+          if (append) {
+            // 跨页去重：服务端按页去重，同一条目在两页边界上仍可能出现。
+            const seen = new Set(prev.entries.map((entry) => entry.name))
+            entries = prev.entries.concat(fresh.filter((entry) => !seen.has(entry.name)))
+          }
+          return {
+            status: 'ready',
+            entries,
+            nextCursor: data.nextCursor || null,
+            error: '',
+            query: text || '',
+          }
         })
+      }, [t])
+
+      // 打开就加载第一页。商店是「进来就能逛」，不是「先想一个词再搜」——
+      // 空关键词在官方 registry 上是合法的：它返回的就是第一页全部条目。
+      // 依赖数组刻意留空：只跑一次，否则 search 变了会重新拉一遍，把已经翻到的位置冲掉。
+      React.useEffect(() => {
+        search('', null)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [])
 
       const install = React.useCallback(
@@ -1267,9 +1296,10 @@ window.__ModuleLoader__.load({
                 'button',
                 {
                   className: `${CLASS_PREFIX}btn ${CLASS_PREFIX}btnSm`,
+                  disabled: moreBusy,
                   onClick: () => search(state.query, state.nextCursor),
                 },
-                t('catalogMore'),
+                moreBusy ? t('loading') : t('catalogMore'),
               ),
             )
           : null,

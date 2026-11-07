@@ -31,6 +31,14 @@ test('classifyCall 只认 MCP 工具与 skill 调用', () => {
   assert.deepEqual(classifyCall('mcp__rea__a__b', {}), { space: 'mcp', server: 'rea', tool: 'a__b' })
   assert.deepEqual(classifyCall('skill', { name: 'office-docx' }), { space: 'skill', skill: 'office-docx', tool: 'skill' })
   assert.deepEqual(classifyCall('skill', {}), { space: 'skill', skill: null, tool: 'skill' })
+  // 参数是 JSON 文本而不是对象：会话日志里 tool/call 的 data.arguments 就是这个形状。
+  // 只认对象会让每一次 skill 调用都记成 skill: null，「哪个 skill 用得最多」永远空白。
+  assert.deepEqual(
+    classifyCall('skill', '{"name": "dsh-plugin-failures"}'),
+    { space: 'skill', skill: 'dsh-plugin-failures', tool: 'skill' },
+  )
+  assert.deepEqual(classifyCall('skill', '{not json'), { space: 'skill', skill: null, tool: 'skill' })
+  assert.deepEqual(classifyCall('skill', undefined), { space: 'skill', skill: null, tool: 'skill' })
 
   // 形状不对的一律不记，否则会污染统计
   assert.equal(classifyCall('mcp__rea', {}), null)

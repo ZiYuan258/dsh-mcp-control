@@ -55,6 +55,14 @@ Cursor、Windsurf（两个路径）、Gemini CLI、Codex CLI。认三种 JSON sc
 `awesome-mcp-servers` 只是链接集合（条目是网页链接，不是可安装配置）——
 **接一个半能用的源不如不接。**
 
+打开「目录」就加载第一页，不用先想一个词——空关键词在官方 registry 上返回的就是
+第一页全部条目。原来做成「必须先搜」，一进页面只剩一行说明和一个空搜索框，
+等于把商店做成了检索引擎。registry 又是**一条目一版本一行**：搜 `filesystem` 会拿到
+同一条服务器的 0.1.2 / 0.1.3 / 0.1.5 三行，不合并的话一屏三条一样的卡片。
+现在按名字合并、留最新版本（版本按数字段比，`0.1.10` 不会被 `0.1.9` 挤掉）。
+「下一页」是接着看：新一页**追加**在后面，不换掉已经看到的那批，
+翻页时列表也不打回加载态——否则页面高度塌掉，用户的滚动位置就丢了。
+
 安装的落点是补丁文件：往 `$DSH_HOME/cordis.patch.yml` 追加**一整块新的** `- insert:`。
 已有块一个字节不动，行号也不动。安装后不需要重启：宿主的 HMR 监听这个文件，
 reconcile 之后自己热应用。
@@ -151,6 +159,15 @@ the panel shows the reason instead of silently dropping them.
 Only `registry.modelcontextprotocol.io` is wired up. Smithery returned 500 in testing and
 `awesome-mcp-servers` is just a link collection — one working source beats three
 half-working ones.
+
+Opening the Catalog tab loads the first page by itself. It used to require a search
+first, which left the page as one line of prose over an empty box — a store turned into
+a search engine. The registry also returns one row per version, so searching
+`filesystem` yielded the same server at 0.1.2 / 0.1.3 / 0.1.5 as three identical cards.
+Entries are now collapsed by name with the newest version kept, compared numerically so
+`0.1.10` is not pushed out by `0.1.9`. "Next page" appends instead of replacing, and the
+list never drops back to a loading state mid-page — that would collapse the page height
+and lose the reader's scroll position.
 
 Installation lands in the patch file: a whole new `- insert:` block is appended to
 `$DSH_HOME/cordis.patch.yml`. Existing blocks are not touched and keep their line numbers.

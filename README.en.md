@@ -235,6 +235,11 @@ support it, and the panel says so instead of pretending otherwise.
 Search hits the official MCP registry (`registry.modelcontextprotocol.io`), because of
 the other two sources one measured a 500 and the other is just links inside a README.
 
+Opening the Catalog tab loads the first page straight away — you do not have to think
+of a keyword first. The registry returns one row per version, so the same server shows
+up two or three times; entries are **collapsed by name, newest version kept**. "Next
+page" **appends** to what you already see instead of replacing it.
+
 Installing means **appending a whole `- insert:` block** to
 `$DSH_HOME/cordis.patch.yml`. No runtime state is kept elsewhere: the file is written
 and DSH's HMR — which is already watching it — picks it up.
@@ -317,6 +322,7 @@ test/docs-parity.test.mjs          zh/en README section parity, bilingual releas
 test/release-consistency.test.mjs  every version has a release note
 test/panel-entry.test.mjs          panel seats, state-file round trip, slot register/unregister
 test/servers-view.test.mjs        servers view: pending rows, per-server call counts
+test/catalog-view.test.mjs        catalog view: loads on open, paging appends, search replaces
 ```
 
 Zero dependencies, using Node's built-in `node:test`.

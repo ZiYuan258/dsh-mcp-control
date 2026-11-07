@@ -14,6 +14,8 @@ import {
   CATALOG_URL,
   cacheFresh,
   catalogUrl,
+  collapseVersions,
+  compareVersions,
   parseCatalogPage,
   specFromEntry,
   summarizeEntry,
@@ -129,6 +131,42 @@ test('parseCatalogPage：坏条目跳过，游标按实测形状取', () => {
 
   assert.deepEqual(parseCatalogPage({}), { entries: [], nextCursor: null })
   assert.deepEqual(parseCatalogPage(null), { entries: [], nextCursor: null })
+})
+
+test('collapseVersions：同一条目的多个版本合成一行，留最新的', () => {
+  // registry 是「一条目一版本一行」：实测搜 filesystem 会拿到同一条的
+  // 0.1.2 / 0.1.3 / 0.1.5 三行。不去重的话一屏三条一样的卡片，逛起来像刷屏。
+  const rows = [
+    { name: 'com.pulsemcp/remote-filesystem', version: '0.1.2' },
+    { name: 'com.pulsemcp/remote-filesystem', version: '0.1.5' },
+    { name: 'com.pulsemcp/remote-filesystem', version: '0.1.3' },
+    { name: 'io.example/fetch', version: '1.0.0' },
+  ]
+  const collapsed = collapseVersions(rows)
+  assert.equal(collapsed.length, 2)
+  assert.equal(collapsed[0].name, 'com.pulsemcp/remote-filesystem')
+  assert.equal(collapsed[0].version, '0.1.5')
+  assert.equal(collapsed[1].version, '1.0.0')
+  // 顺序保持首次出现的顺序，不因为版本比较而重排整页
+  assert.deepEqual(collapsed.map((row) => row.name), ['com.pulsemcp/remote-filesystem', 'io.example/fetch'])
+  assert.deepEqual(collapseVersions([]), [])
+})
+
+test('compareVersions：按数字段比，不是按字符串比', () => {
+  // 字符串比较会让 0.1.10 排在 0.1.9 前面，于是「留最新」会留下旧的
+  assert.equal(compareVersions('0.1.10', '0.1.9'), 1)
+  assert.equal(compareVersions('0.1.9', '0.1.10'), -1)
+  assert.equal(compareVersions('1.2.3', '1.2.3'), 0)
+  assert.equal(compareVersions('2.0.0', '1.99.99'), 1)
+  // 缺段算 0：1.2 与 1.2.0 是同一个版本
+  assert.equal(compareVersions('1.2', '1.2.0'), 0)
+  assert.equal(compareVersions('1.2.1', '1.2'), 1)
+  // 预发布比正式版旧：1.0.0-rc.1 在 1.0.0 之前（多出的段让它更旧）。
+  // 这一条保证「留最新」不会把 rc 留下来、把正式版扔掉。
+  assert.equal(compareVersions('1.0.0-rc.1', '1.0.0'), -1)
+  assert.equal(compareVersions('1.0.0', '1.0.0-rc.1'), 1)
+  assert.equal(compareVersions('', ''), 0)
+  assert.equal(compareVersions(null, '1.0.0'), -1)
 })
 
 test('catalogUrl：关键词与游标都进查询串，limit 被夹住', () => {

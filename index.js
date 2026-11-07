@@ -49,7 +49,7 @@ import {
   toCallLine,
 } from './lib/calls.js'
 import { scanAll } from './lib/scan.js'
-import { cacheFresh, fetchCatalog, specFromEntry } from './lib/catalog.js'
+import { cacheFresh, collapseVersions, fetchCatalog, specFromEntry } from './lib/catalog.js'
 
 export const name = 'dsh-mcp-control'
 export const inject = ['webServer']
@@ -828,8 +828,10 @@ export function apply(ctx) {
           // Attach the spec the install button would send, so the browser never has to
           // re-implement "how a catalog entry becomes a patch row" — one implementation,
           // in the module that is unit-tested for it.
+          // Also collapse the per-version rows the registry returns for one server:
+          // three copies of the same card is what "browse" looks like without this.
           const entries = Array.isArray(result.entries)
-            ? result.entries.map((entry) => ({ ...entry, suggested: specFromEntry(entry) }))
+            ? collapseVersions(result.entries).map((entry) => ({ ...entry, suggested: specFromEntry(entry) }))
             : result.entries
           return send(res, result.ok ? 200 : 502, { view: 'catalog', query, ...result, entries })
         }

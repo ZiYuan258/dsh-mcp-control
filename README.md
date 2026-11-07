@@ -198,6 +198,11 @@ bundle  →  profile cordis.patch.yml  →  $DSH_HOME/cordis.patch.yml  →  ove
 搜的是 MCP 官方 registry（`registry.modelcontextprotocol.io`），因为另外两个源
 实测一个是 500、另一个只是 README 里的链接。
 
+打开「目录」就加载第一页，不用先想一个词——空关键词在官方 registry 上返回的就是
+第一页全部条目。registry 是「一条目一版本一行」，同一条目搜出来会有两三行，
+所以**按名字合并，只留最新版本**。「下一页」是**接着看**：新一页追加在后面，
+不换掉你已经看到的那批。
+
 安装 = 往 `$DSH_HOME/cordis.patch.yml` **追加一整块** `- insert:`。
 运行时不另存状态：写完文件就交给 DSH 的 HMR，它正监听着这个文件。
 
@@ -266,6 +271,7 @@ test/docs-parity.test.mjs          中英 README 章节对齐、发布说明双�
 test/release-consistency.test.mjs  每个版本都有发布说明
 test/panel-entry.test.mjs          面板入口：座位词汇、状态文件往返、槽位注册/注销
 test/servers-view.test.mjs        服务器视图：未挂载行、单服务器调用计数
+test/catalog-view.test.mjs        目录视图：打开即加载、翻页追加、搜索替换
 ```
 
 零依赖，用 Node 内置 `node:test`。
