@@ -26,7 +26,7 @@ That is not an estimate; it is what the panel reads back from `ctx.tools.schemas
 Inside a 320K-token prefix, one server owns three fifths of it — which decides whether
 a request can carry anything else at all.
 
-The plugin adds one panel that does three things:
+The plugin adds one panel that does six things:
 
 1. **Show** how many tools each MCP server has registered, how many bytes that is,
    and what it costs in tokens.
@@ -34,6 +34,17 @@ The plugin adds one panel that does three things:
    **full** amount, rather than hiding them.
 3. **Remember** the choice by writing an override row into `$DSH_HOME/cordis.patch.yml`,
    so it survives a restart.
+4. **Record** which servers are actually called, how slowly, and how often they fail —
+   see *Call log*.
+5. **Import** servers already configured in another MCP client — see *Import from
+   another client*.
+6. **Install** a server from the official catalog straight into the patch file — see
+   *Catalog search and install*.
+
+Items 4–6 are borrowed from
+[`dsh-overall-mcp`](https://github.com/YunzhouLi-hub/dsh-overall-mcp). It takes a road
+this plugin does not (runtime `ctx.plugin(mcpClient)` mounting), so **only the parts
+that survive our contracts were borrowed** — see `DECISION.md`, sub-decision 7.
 
 The panel lives in **Settings → MCP Control** by default, and can move to the left
 sidebar instead — see *Panel entry*.
@@ -62,13 +73,13 @@ putting it there would wake the patch watcher to replay composition on every cli
 
 - **Not** fake saving. "Hidden but still registered" is not a mode here — see
   *Disabling really saves* below.
-- **Not** an MCP server manager: it never adds, edits, or deletes a server definition.
-  It only changes the **enabled state**. To add a server, keep using an official
-  `@deepseek-ai/dsh-mcp-client` row or the connector plugin you already use.
 - **Not** a connector panel. Plugins like `dsh-mcp-connector` enumerate only the
   connections **they** created. This one enumerates loader entries, so it sees **every
   MCP row in every layer**, whatever put it there.
-- **No build step and no dependencies.** Plain JS: `index.js` + `client.js`.
+- **Not** a runtime mounter that owns what it installs. Every server it adds is
+  **written into the patch file**, so `git diff` shows it, uninstalling removes it
+  cleanly, and a restart keeps it.
+- **No build step and no dependencies.** Plain JS: `index.js` + `client.js` + `lib/`.
 
 ## Do you need it
 
@@ -175,6 +186,70 @@ line is rewritten in place; nothing is reordered, the file is never rewritten wh
 rows inside an `insert:` list are never touched, and CRLF-vs-LF plus the trailing newline
 are preserved. **If the file is already in the target state, not one byte changes.**
 
+## Call log
+
+The panel's second tab records **what was actually used**: which MCP tools were called,
+how many times, how slowly, and how often they failed.
+
+The data comes from the host's `session/event` stream — `tool/call` and `tool/result`,
+paired by `callId`. Only `mcp__<server>__<tool>` and `skill` calls are recorded;
+native `read` / `bash` are not, or the log would drown in ordinary work.
+
+| Field | Meaning |
+|---|---|
+| Today / total | dates are cut in the **local time zone**, not UTC |
+| Success rate | only **settled** calls count; running ones stay out of the denominator |
+| Average time | same rule — a call that has not settled has no duration to average |
+| Retention | 7 days, at most 20 000 lines (`$DSH_HOME/dsh-mcp-control/calls.jsonl`) |
+
+Each record is written **only when it settles**. The reference implementation writes a
+"running" line too and merges on read; the price is that a process killed between the
+two writes leaves an orphan row forever marked *running* — a call that appears to have
+been running for a week. This plugin does not do that.
+
+## Import from another client
+
+Servers already configured in another MCP client can be moved into DSH in one click.
+Scanning is **whitelist-based**: exactly the ten paths below, **never recursive**.
+
+```
+%APPDATA%/Claude/claude_desktop_config.json   Claude Desktop
+~/.claude.json                                Claude Code
+~/.claude/settings.json                       Claude Code
+%APPDATA%/Code/User/mcp.json                  VS Code
+%APPDATA%/Code - Insiders/User/mcp.json       VS Code Insiders
+~/.cursor/mcp.json                            Cursor
+%APPDATA%/Windsurf/User/mcp_config.json       Windsurf
+~/.codeium/windsurf/mcp_config.json           Windsurf
+~/.gemini/settings.json                       Gemini CLI
+~/.codex/config.toml                          Codex CLI
+```
+
+Three JSON schemas are recognised (`mcpServers` / `servers` / `mcp.servers`), plus
+Codex's `[mcp_servers.<name>]` TOML section (a minimal extractor, so no TOML library
+is pulled in). `sse` transport is **not importable** — `dsh-mcp-client` does not
+support it, and the panel says so instead of pretending otherwise.
+
+## Catalog search and install
+
+Search hits the official MCP registry (`registry.modelcontextprotocol.io`), because of
+the other two sources one measured a 500 and the other is just links inside a README.
+
+Installing means **appending a whole `- insert:` block** to
+`$DSH_HOME/cordis.patch.yml`. No runtime state is kept elsewhere: the file is written
+and DSH's HMR — which is already watching it — picks it up.
+
+| Action | What lands where |
+|---|---|
+| Install | one more `- insert:` block in the patch file; the live tree mounts it |
+| Remove | only the block this plugin wrote; rows the host wrote are byte-identical |
+| Roll back | every write is backed up first; `backupPath` points at it |
+
+Before installing, the spec is **validated**: `serverName` must match
+`/^[A-Za-z0-9_-]{1,32}$/` (`dsh-mcp-client`'s own rule), and a duplicate id is
+**refused rather than overwritten** — overwriting would silently rewrite a server
+that is currently running.
+
 ## Safety
 
 Upstream's weakest point was that it **did not back the patch up before writing**.
@@ -198,8 +273,10 @@ This fork does.
 - **Locked entries.** `include`, `cordis:include`, `dsh-mcp-control`, `dsh-mcp-toggle`
   are always 403.
 - **1 MB request-body cap.**
-- **Only the switch is touched.** No server definition is added, edited, or deleted, and
-  `cordis.yml` is never touched.
+- **Only the switch, and only the rows this plugin installed.** Toggling touches
+  `disabled:` alone; install and remove touch the `- insert:` block this plugin
+  appended and its matching top-level override. A server definition written elsewhere
+  is never modified, and `cordis.yml` is never touched.
 
 To roll back: copy the file that `backupPath` points at back over `cordis.patch.yml`.
 
@@ -230,6 +307,10 @@ npm test
 ```
 test/unit.test.mjs                 pure functions (every upsertDisabled branch, CRLF, quoted ids)
 test/patch-contract.test.mjs       emitted YAML must satisfy real DSH patch semantics (canary)
+test/patch.test.mjs                install/remove row editing: quoting, indentation, three delete guards
+test/calls.test.mjs                call log: classification, pairing, and the counting rules
+test/scan.test.mjs                 config import: three schemas, TOML, the whitelist privacy boundary
+test/catalog.test.mjs              catalog search: package choice, spec generation, id normalization
 test/write-path.test.mjs           write-path contract: backups, idempotence, no fake success
 test/package-contract.test.mjs     version consistency, files whitelist, no runtime @deepseek-ai dep
 test/docs-parity.test.mjs          zh/en README section parity, bilingual release-note structure
@@ -256,26 +337,44 @@ Zero dependencies, using Node's built-in `node:test`.
     "schemaBytes": 766054,
     "estTokens": 191514,
     "breakdown": { "nameBytes": 6148, "descriptionBytes": 92265, "parameterBytes": 667641 },
-    "layer": "home"
+    "layer": "home",
+    "inFile": true,
+    "calls": { "calls": 42, "failed": 1, "avgMs": 310 }
   }],
+  "orphaned": [],
   "totals": { "servers": 1, "enabled": 1, "disabled": 0, "mcpToolCount": 207,
               "mcpSchemaBytes": 766054, "mcpEstTokens": 191514,
-              "activeEstTokens": 191514, "bytesPerToken": 4 },
+              "activeEstTokens": 191514, "bytesPerToken": 4,
+              "calls": 42, "callsToday": 5, "okRate": 97.6 },
   "patchPath": "C:\\Users\\<you>\\.dsh\\cordis.patch.yml",
   "layersReadable": true,
   "panelEntry": "settings",
-  "panelEntryFile": "<DSH_HOME>/dsh-mcp-control/state.json"
+  "panelEntryFile": "<DSH_HOME>/dsh-mcp-control/state.json",
+  "callsPath": "<DSH_HOME>/dsh-mcp-control/calls.jsonl"
 }
 ```
 
 (`panelEntryError` appears only when the state file exists but cannot be read.)
+(`orphaned` lists rows the patch file has but the live tree never mounted.)
 
-`POST /mcp-control/api`, one of three shapes:
+Add `?view=` for three more views:
+
+| view | Returns |
+|---|---|
+| (default) | the server snapshot: per-row cost, call count, still in the patch file |
+| `calls` | the latest 200 call records, the statistics, and the log path |
+| `scan` | the whitelist scan, each entry carrying an installable `suggested` |
+| `catalog&q=&cursor=` | official catalog results, each carrying a `suggested` |
+
+`POST /mcp-control/api`, one of six shapes:
 
 ```json
 { "entryId": "include:rea-mcp", "disabled": true }
 { "action": "disable-all" }
 { "action": "set-panel-entry", "entry": "sidebar" }
+{ "action": "install-server", "spec": { "id": "mcp-fetch", "serverName": "fetch", "transport": "stdio", "command": "uvx", "args": ["mcp-server-fetch"] } }
+{ "action": "remove-server", "rawId": "mcp-fetch" }
+{ "action": "clear-calls" }
 ```
 
 Single-toggle response: `{ ok, entryId, rawId, serverName, disabled, fiberPhase,
@@ -285,13 +384,21 @@ Panel-entry response: `{ ok, action: "set-panel-entry", panelEntry, panelEntryFi
 An `entry` that is neither `sidebar` nor `settings` is **400** — refused rather than
 substituted for a valid one; a failed write is **500**, leaving the state file as it was.
 
+Install response: `{ ok, action: "install-server", id, serverName, patchPath, backupPath? }`.
+The loader is **not** called — the written patch file is handed to DSH's HMR. An id that
+already exists is **409**; an invalid spec is **400**. Remove response:
+`{ ok, action: "remove-server", rawId, removed, patchPath, backupPath? }`; not found is
+**404**, a locked entry is **403**.
+
 | Status | Meaning |
 |---|---|
-| 400 | malformed body / `disabled` is not a boolean / target is not an MCP row |
+| 400 | malformed body / `disabled` is not a boolean / target is not an MCP row / invalid spec |
 | 403 | empty `entryId` / entry is locked |
-| 404 | unknown entry |
+| 404 | unknown entry / the id to remove is not in the patch |
 | 405 | method not allowed |
-| 500 | the loader threw |
+| 409 | the id being installed already exists (refused rather than overwriting a live server) |
+| 500 | the loader threw / the write failed |
+| 502 | the catalog service is unreachable |
 | 503 | the loader service is unavailable |
 
 ## Two honest caveats
@@ -313,7 +420,11 @@ enters the context**, far smaller than the raw `tools/list`, and far more honest
 
 ```
 index.js          host half: route + enumeration + cost accounting + persist (line-wise upsert + backups)
-client.js         browser half: the settings page (hand-written ModuleLoader CJS closure, no build step)
+client.js         browser half: four views (hand-written ModuleLoader CJS closure, no build step)
+lib/patch.js      install/remove: validating, generating, and precisely deleting patch rows
+lib/calls.js      call log: classification, pairing, counting rules, trimming
+lib/scan.js       config import: ten whitelisted paths, three JSON schemas, minimal TOML
+lib/catalog.js    official catalog search: package choice and spec generation
 cordis.patch.yml  inserts the plugin row mcp-control
 locale/           en.json / zh.json — title and description in the plugin list
 icon.svg          plugin icon

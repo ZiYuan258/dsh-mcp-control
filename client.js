@@ -39,7 +39,7 @@ window.__ModuleLoader__.load({
     // Kept in step with package.json by tests/package-contract.test.mjs — the two must
     // never drift, because the panel prints this and the manifest is what installs.
     const PACKAGE = 'dsh-mcp-control'
-    const VERSION = '1.1.0'
+    const VERSION = '1.2.0'
 
     const PHASE_LABEL = {
       pending: { zh: '连接中…', en: 'Connecting…' },
@@ -116,6 +116,70 @@ window.__ModuleLoader__.load({
         zh: '⚠️ 刚才那次没有保存成功，下面仍是原来的设置。请再选一次。',
         en: '⚠️ That did not save, so the setting is unchanged. Please pick one again.',
       },
+
+      tabsServers: { zh: '服务器', en: 'Servers' },
+      tabsCalls: { zh: '调用记录', en: 'Calls' },
+      tabsScan: { zh: '导入', en: 'Import' },
+      tabsCatalog: { zh: '目录', en: 'Catalog' },
+
+      callsIntro: {
+        zh: '只记录真的发生过的 MCP 工具调用与 skill 触发，按结算时间落一行。保留 7 天。',
+        en: 'Only calls that actually happened: MCP tool calls and skill triggers, one line each, kept for 7 days.',
+      },
+      callsEmpty: { zh: '还没有调用记录。用过 MCP 工具之后这里会出现。', en: 'No calls recorded yet. Use an MCP tool and its call shows up here.' },
+      callsLoadFailed: { zh: '读取调用记录失败', en: 'Could not read the call log' },
+      callsStatusOk: { zh: '成功', en: 'ok' },
+      callsStatusFailed: { zh: '失败', en: 'failed' },
+      callsStatusRunning: { zh: '进行中', en: 'running' },
+      callsTool: { zh: '工具', en: 'Tool' },
+      callsServer: { zh: '服务器', en: 'Server' },
+      callsSkill: { zh: '技能', en: 'Skill' },
+      callsSession: { zh: '会话', en: 'Session' },
+      callsDuration: { zh: '耗时', en: 'Took' },
+      callsWhen: { zh: '时间', en: 'When' },
+      callsReq: { zh: '入参', en: 'Arguments' },
+      callsRes: { zh: '结果', en: 'Result' },
+      callsClear: { zh: '清空记录', en: 'Clear log' },
+      callsCleared: { zh: '调用记录已清空', en: 'Call log cleared' },
+      callsTotal: { zh: '保留期内', en: 'Kept' },
+      callsToday: { zh: '今天', en: 'Today' },
+      callsOkRate: { zh: '成功率', en: 'Success rate' },
+      callsAvg: { zh: '平均耗时', en: 'Average' },
+
+      scanIntro: {
+        zh: '从其它 MCP 客户端（Claude Desktop / Claude Code / VS Code / Cursor / Windsurf / Gemini / Codex）读配置，挑一条导入。只读白名单里的那十个文件，不递归扫目录。',
+        en: 'Read the configs of other MCP clients (Claude Desktop / Claude Code / VS Code / Cursor / Windsurf / Gemini / Codex) and import one entry. Only the ten allow-listed files are read; nothing is scanned recursively.',
+      },
+      scanNone: {
+        zh: '本机没有找到可导入的配置文件。这些客户端可能都没装过，或者配置文件不在标准位置。',
+        en: 'No importable config files were found. Those clients may not be installed, or their configs sit elsewhere.',
+      },
+      scanLoadFailed: { zh: '扫描失败', en: 'Scan failed' },
+      scanSource: { zh: '来源', en: 'Source' },
+      scanImport: { zh: '导入', en: 'Import' },
+      scanImported: { zh: '已导入', en: 'Imported' },
+      scanCannot: { zh: '无法导入', en: 'Not importable' },
+      scanRescan: { zh: '重新扫描', en: 'Rescan' },
+      scanSpec: { zh: '将写入', en: 'Will write' },
+
+      catalogIntro: {
+        zh: '搜索官方 MCP Registry（registry.modelcontextprotocol.io）。能装的那些会带上建议的补丁行，点「安装」就写进 home 补丁文件。',
+        en: 'Search the official MCP Registry (registry.modelcontextprotocol.io). Installable entries carry a suggested patch row; Install writes it into the home patch file.',
+      },
+      catalogPlaceholder: { zh: '搜索服务器名或能力…', en: 'Search a server name or capability…' },
+      catalogSearch: { zh: '搜索', en: 'Search' },
+      catalogEmpty: { zh: '没有结果。换个关键词试试，或者直接手写一行补丁。', en: 'No results. Try another word, or write a patch row by hand.' },
+      catalogLoadFailed: { zh: '目录查询失败', en: 'Catalog lookup failed' },
+      catalogInstall: { zh: '安装', en: 'Install' },
+      catalogInstalled: { zh: '已写入补丁文件', en: 'Written to the patch file' },
+      catalogCannot: { zh: '需要手工接线', en: 'Needs manual wiring' },
+      catalogMore: { zh: '下一页', en: 'Next page' },
+      catalogPrev: { zh: '第一页', en: 'First page' },
+
+      installFailed: { zh: '安装失败', en: 'Install failed' },
+      remove: { zh: '删除', en: 'Remove' },
+      removeConfirm: { zh: '确定要从补丁文件里删掉这一行？', en: 'Remove this row from the patch file?' },
+      removed: { zh: '已从补丁文件删除', en: 'Removed from the patch file' },
     }
 
     function detectLang(ctx) {
@@ -299,10 +363,22 @@ window.__ModuleLoader__.load({
 .${CLASS_PREFIX}segBtn:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-2); }
 .${CLASS_PREFIX}segBtn:disabled { opacity: 0.5; cursor: default; }
 .${CLASS_PREFIX}segOn, .${CLASS_PREFIX}segOn:hover:not(:disabled) { background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); }
+.${CLASS_PREFIX}tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); padding-bottom: 0; }
+.${CLASS_PREFIX}tab { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); padding: 7px 12px; font-size: 13px; font-family: inherit; cursor: pointer; border-radius: 6px 6px 0 0; }
+.${CLASS_PREFIX}tab:hover { background: var(--dsw-alias-bg-layer-2); }
+.${CLASS_PREFIX}tabOn { color: var(--dsw-alias-brand-primary); border-bottom-color: var(--dsw-alias-brand-primary); }
+.${CLASS_PREFIX}input { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 8px; padding: 6px 10px; font-size: 13px; font-family: inherit; flex: 1 1 220px; min-width: 0; }
+.${CLASS_PREFIX}input:focus { outline: none; border-color: var(--dsw-alias-brand-primary); }
+.${CLASS_PREFIX}mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; }
+.${CLASS_PREFIX}group { display: flex; flex-direction: column; gap: 8px; }
+.${CLASS_PREFIX}groupTitle { font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.${CLASS_PREFIX}sub { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.6; }
+.${CLASS_PREFIX}btnSm { padding: 4px 10px; font-size: 12px; }
+.${CLASS_PREFIX}btnDanger { border-color: var(--dsw-alias-state-error-primary); color: var(--dsw-alias-state-error-primary); }
 `
     }
 
-    function McpControlPage(props) {
+    function ServersPanel(props) {
       const ctx = props && props.ctx ? props.ctx : null
       const lang = useLang(ctx)
       const [state, setState] = React.useState({ status: 'loading', servers: [], totals: null, patchPath: '', error: '' })
@@ -603,7 +679,567 @@ window.__ModuleLoader__.load({
           : null,
 
         toast ? h('div', { className: `${CLASS_PREFIX}toast` }, toast) : null,
+      )
+    }
 
+    /**
+     * POST one JSON body and return the parsed reply. Never throws on a non-2xx: the
+     * caller wants the host's `error` string, and a thrown `HTTP 409` loses it.
+     */
+    async function postJson(body) {
+      const response = await fetch(API, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      let data = null
+      try {
+        data = await response.json()
+      } catch {
+        data = null
+      }
+      if (!data) return { ok: false, error: `HTTP ${response.status}` }
+      return data
+    }
+
+    async function getJson(query) {
+      const response = await fetch(`${API}${query}`, { cache: 'no-store' })
+      let data = null
+      try {
+        data = await response.json()
+      } catch {
+        data = null
+      }
+      if (!data) return { ok: false, error: `HTTP ${response.status}` }
+      return data
+    }
+
+    function formatMs(ms) {
+      if (typeof ms !== 'number' || !Number.isFinite(ms)) return '—'
+      if (ms < 1000) return `${Math.round(ms)} ms`
+      if (ms < 60000) return `${(ms / 1000).toFixed(1)} s`
+      return `${Math.round(ms / 60000)} min`
+    }
+
+    function formatWhen(iso) {
+      const at = Date.parse(iso)
+      if (!Number.isFinite(at)) return '—'
+      const date = new Date(at)
+      const pad = (value) => String(value).padStart(2, '0')
+      return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+    }
+
+    function StatBar(props) {
+      return h(
+        'div',
+        { className: `${CLASS_PREFIX}totals` },
+        (props.items || []).map((item) =>
+          h(
+            'div',
+            { className: `${CLASS_PREFIX}stat`, key: item.label },
+            h('span', { className: `${CLASS_PREFIX}statValue` }, item.value),
+            h('span', { className: `${CLASS_PREFIX}statLabel` }, item.label),
+          ),
+        ),
+      )
+    }
+
+    /**
+     * The call log: every MCP tool call and skill trigger that actually happened.
+     *
+     * Deliberately not a live tail. Each row is written when it settles, so the panel
+     * shows finished work and nothing that describes a state the process might never
+     * leave.
+     */
+    function CallsPanel(props) {
+      const ctx = props && props.ctx ? props.ctx : null
+      const lang = useLang(ctx)
+      const [state, setState] = React.useState({ status: 'loading', rows: [], stats: null, kept: 0, file: '', error: '' })
+      const [busy, setBusy] = React.useState(false)
+      const [toast, setToast] = React.useState(null)
+
+      const t = React.useCallback((key) => (TEXT[key] ? TEXT[key][lang] : key), [lang])
+
+      const load = React.useCallback(async () => {
+        setState((prev) => ({ ...prev, status: 'loading' }))
+        const data = await getJson('?view=calls')
+        if (!data || data.ok !== true) {
+          setState({ status: 'error', rows: [], stats: null, kept: 0, file: '', error: (data && data.error) || 'HTTP' })
+          return
+        }
+        setState({
+          status: 'ready',
+          rows: data.rows || [],
+          stats: data.stats || null,
+          kept: data.kept || 0,
+          file: data.file || '',
+          error: '',
+        })
+      }, [])
+
+      React.useEffect(() => {
+        load()
+      }, [load])
+
+      const clear = React.useCallback(async () => {
+        setBusy(true)
+        const data = await postJson({ action: 'clear-calls' })
+        setToast(data && data.ok === true ? t('callsCleared') : `${t('failed')}: ${(data && data.error) || 'HTTP'}`)
+        await load()
+        setBusy(false)
+      }, [load, t])
+
+      const stats = state.stats
+      return h(
+        'div',
+        { className: `${CLASS_PREFIX}page` },
+        h('div', { className: `${CLASS_PREFIX}intro` }, t('callsIntro')),
+        stats
+          ? h(StatBar, {
+              items: [
+                { label: t('callsTotal'), value: String(stats.total || 0) },
+                { label: t('callsToday'), value: String(stats.today || 0) },
+                {
+                  label: t('callsOkRate'),
+                  value: typeof stats.okRate === 'number' ? `${stats.okRate}%` : '—',
+                },
+                { label: t('callsAvg'), value: formatMs(stats.avgMs) },
+              ],
+            })
+          : null,
+        h(
+          'div',
+          { className: `${CLASS_PREFIX}bar` },
+          h(
+            'button',
+            { className: `${CLASS_PREFIX}btn`, onClick: load, disabled: busy || state.status === 'loading' },
+            t('refresh'),
+          ),
+          h(
+            'button',
+            {
+              className: `${CLASS_PREFIX}btn ${CLASS_PREFIX}btnDanger`,
+              onClick: clear,
+              disabled: busy || state.kept === 0,
+            },
+            t('callsClear'),
+          ),
+          h('span', { className: `${CLASS_PREFIX}spacer` }),
+          h('span', { className: `${CLASS_PREFIX}hint` }, `${t('callsTotal')}: ${state.kept}`),
+        ),
+        state.status === 'loading'
+          ? h('div', { className: `${CLASS_PREFIX}empty` }, t('loading'))
+          : state.status === 'error'
+            ? h('div', { className: `${CLASS_PREFIX}empty` }, `${t('callsLoadFailed')}: ${state.error}`)
+            : state.rows.length === 0
+              ? h('div', { className: `${CLASS_PREFIX}empty` }, t('callsEmpty'))
+              : h(
+                  'div',
+                  { className: `${CLASS_PREFIX}list` },
+                  state.rows.map((row, index) => {
+                    const okTag = row.status === 'failed' ? `${CLASS_PREFIX}tagFail` : `${CLASS_PREFIX}tagOn`
+                    return h(
+                      'div',
+                      { className: `${CLASS_PREFIX}row`, key: `${row.id}-${index}` },
+                      h(
+                        'div',
+                        { className: `${CLASS_PREFIX}rowMain` },
+                        h('span', { className: `${CLASS_PREFIX}name` }, row.name),
+                        h(
+                          'span',
+                          { className: `${CLASS_PREFIX}tag ${okTag}` },
+                          row.status === 'failed' ? t('callsStatusFailed') : t('callsStatusOk'),
+                        ),
+                        row.space === 'skill'
+                          ? h('span', { className: `${CLASS_PREFIX}tag` }, `${t('callsSkill')}: ${row.skill || '—'}`)
+                          : h('span', { className: `${CLASS_PREFIX}tag` }, `${t('callsServer')}: ${row.server || '—'}`),
+                        h('span', { className: `${CLASS_PREFIX}spacer` }),
+                        h(
+                          'span',
+                          { className: `${CLASS_PREFIX}cost` },
+                          `${formatMs(row.ms)} · ${formatWhen(row.startedAt)} · ${row.session}`,
+                        ),
+                      ),
+                      row.req || row.res
+                        ? h(
+                            'div',
+                            { className: `${CLASS_PREFIX}details` },
+                            row.req
+                              ? h(
+                                  'span',
+                                  { className: `${CLASS_PREFIX}mono`, title: row.req },
+                                  `${t('callsReq')}: ${row.req}`,
+                                )
+                              : null,
+                            row.res
+                              ? h(
+                                  'span',
+                                  { className: `${CLASS_PREFIX}mono`, title: row.res },
+                                  `${t('callsRes')}: ${row.res}`,
+                                )
+                              : null,
+                          )
+                        : null,
+                    )
+                  }),
+                ),
+        state.file ? h('div', { className: `${CLASS_PREFIX}hint` }, `${t('patchPath')}: ${state.file}`) : null,
+        toast ? h('div', { className: `${CLASS_PREFIX}toast` }, toast) : null,
+      )
+    }
+
+    /**
+     * Import: servers declared in another MCP client's config file.
+     *
+     * Importing is an install, so it goes through the same host action as the catalog
+     * button — one code path writes patch rows, and it is the one with the tests.
+     */
+    function ScanPanel(props) {
+      const ctx = props && props.ctx ? props.ctx : null
+      const lang = useLang(ctx)
+      const [state, setState] = React.useState({
+        status: 'loading',
+        found: [],
+        missing: 0,
+        failed: 0,
+        scanned: 0,
+        error: '',
+      })
+      const [busy, setBusy] = React.useState(null)
+      const [toast, setToast] = React.useState(null)
+
+      const t = React.useCallback((key) => (TEXT[key] ? TEXT[key][lang] : key), [lang])
+
+      const load = React.useCallback(async () => {
+        setState((prev) => ({ ...prev, status: 'loading' }))
+        const data = await getJson('?view=scan')
+        if (!data || data.ok !== true) {
+          setState({
+            status: 'error',
+            found: [],
+            missing: 0,
+            failed: 0,
+            scanned: 0,
+            error: (data && data.error) || 'HTTP',
+          })
+          return
+        }
+        setState({
+          status: 'ready',
+          found: data.found || [],
+          missing: (data.missing || []).length,
+          failed: (data.failed || []).length,
+          scanned: typeof data.scanned === 'number' ? data.scanned : 0,
+          error: '',
+        })
+      }, [])
+
+      React.useEffect(() => {
+        load()
+      }, [load])
+
+      const importOne = React.useCallback(
+        async (server) => {
+          if (!server.suggested) return
+          setBusy(server.id)
+          const data = await postJson({ action: 'install-server', spec: server.suggested })
+          if (!data || data.ok !== true) {
+            setToast(`${t('installFailed')}: ${(data && data.error) || 'HTTP'}`)
+          } else {
+            setToast(`${t('scanImported')}: ${data.serverName}`)
+            await load()
+          }
+          setBusy(null)
+        },
+        [load, t],
+      )
+
+      const total = state.found.reduce((sum, group) => sum + ((group.servers || []).length), 0)
+      return h(
+        'div',
+        { className: `${CLASS_PREFIX}page` },
+        h('div', { className: `${CLASS_PREFIX}intro` }, t('scanIntro')),
+        h(
+          'div',
+          { className: `${CLASS_PREFIX}bar` },
+          h(
+            'button',
+            { className: `${CLASS_PREFIX}btn`, onClick: load, disabled: busy !== null || state.status === 'loading' },
+            t('scanRescan'),
+          ),
+          h('span', { className: `${CLASS_PREFIX}spacer` }),
+          h(
+            'span',
+            { className: `${CLASS_PREFIX}hint` },
+            `${t('scanSource')}: ${state.scanned} · ${state.missing} / ${state.failed}`,
+          ),
+        ),
+        state.status === 'loading'
+          ? h('div', { className: `${CLASS_PREFIX}empty` }, t('loading'))
+          : state.status === 'error'
+            ? h('div', { className: `${CLASS_PREFIX}empty` }, `${t('scanLoadFailed')}: ${state.error}`)
+            : total === 0
+              ? h('div', { className: `${CLASS_PREFIX}empty` }, t('scanNone'))
+              : h(
+                  'div',
+                  { className: `${CLASS_PREFIX}list` },
+                  state.found.map((group) =>
+                    h(
+                      'div',
+                      { className: `${CLASS_PREFIX}group`, key: group.id },
+                      h('div', { className: `${CLASS_PREFIX}groupTitle` }, group.label || group.id),
+                      h('div', { className: `${CLASS_PREFIX}sub ${CLASS_PREFIX}mono` }, group.path || ''),
+                      (group.servers || []).map((server) =>
+                        h(
+                          'div',
+                          { className: `${CLASS_PREFIX}row`, key: `${group.id}-${server.id}` },
+                          h(
+                            'div',
+                            { className: `${CLASS_PREFIX}rowMain` },
+                            h('span', { className: `${CLASS_PREFIX}name` }, server.id),
+                            server.importable
+                              ? h(
+                                  'span',
+                                  { className: `${CLASS_PREFIX}tag ${CLASS_PREFIX}tagOn` },
+                                  server.transport || '',
+                                )
+                              : h(
+                                  'span',
+                                  { className: `${CLASS_PREFIX}tag ${CLASS_PREFIX}tagFail` },
+                                  `${t('scanCannot')}: ${server.error || server.transport || ''}`,
+                                ),
+                            h('span', { className: `${CLASS_PREFIX}spacer` }),
+                            h(
+                              'button',
+                              {
+                                className: `${CLASS_PREFIX}btn ${CLASS_PREFIX}btnSm`,
+                                disabled: !server.suggested || busy !== null,
+                                onClick: () => importOne(server),
+                              },
+                              busy === server.id ? t('busy') : t('scanImport'),
+                            ),
+                          ),
+                          server.suggested
+                            ? h(
+                                'div',
+                                { className: `${CLASS_PREFIX}details` },
+                                h(
+                                  'span',
+                                  { className: `${CLASS_PREFIX}mono` },
+                                  `${t('scanSpec')}: ${server.suggested.serverName} · ${
+                                    server.suggested.command || ''
+                                  } ${(server.suggested.args || []).join(' ')}`,
+                                ),
+                              )
+                            : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+        toast ? h('div', { className: `${CLASS_PREFIX}toast` }, toast) : null,
+      )
+    }
+
+    /**
+     * Catalog: the official MCP registry, with the install button.
+     *
+     * The host attaches the suggested spec to every entry, so this component never decides
+     * what a catalog item becomes on disk — it only sends what it was given.
+     */
+    function CatalogPanel(props) {
+      const ctx = props && props.ctx ? props.ctx : null
+      const lang = useLang(ctx)
+      const [query, setQuery] = React.useState('')
+      const [state, setState] = React.useState({ status: 'idle', entries: [], nextCursor: null, error: '', query: '' })
+      const [busy, setBusy] = React.useState(null)
+      const [toast, setToast] = React.useState(null)
+
+      const t = React.useCallback((key) => (TEXT[key] ? TEXT[key][lang] : key), [lang])
+
+      const search = React.useCallback(async (text, cursor) => {
+        setState((prev) => ({ ...prev, status: 'loading' }))
+        const params = new URLSearchParams({ view: 'catalog', q: text || '' })
+        if (cursor) params.set('cursor', cursor)
+        const data = await getJson(`?${params.toString()}`)
+        if (!data || data.ok !== true) {
+          setState({
+            status: 'error',
+            entries: [],
+            nextCursor: null,
+            error: (data && data.error) || 'HTTP',
+            query: text || '',
+          })
+          return
+        }
+        setState({
+          status: 'ready',
+          entries: data.entries || [],
+          nextCursor: data.nextCursor || null,
+          error: '',
+          query: text || '',
+        })
+      }, [])
+
+      const install = React.useCallback(
+        async (entry) => {
+          if (!entry.suggested) return
+          setBusy(entry.name)
+          const data = await postJson({ action: 'install-server', spec: entry.suggested })
+          if (!data || data.ok !== true) {
+            setToast(`${t('installFailed')}: ${(data && data.error) || 'HTTP'}`)
+          } else {
+            setToast(`${t('catalogInstalled')}: ${data.serverName}`)
+          }
+          setBusy(null)
+        },
+        [t],
+      )
+
+      return h(
+        'div',
+        { className: `${CLASS_PREFIX}page` },
+        h('div', { className: `${CLASS_PREFIX}intro` }, t('catalogIntro')),
+        h(
+          'div',
+          { className: `${CLASS_PREFIX}bar` },
+          h('input', {
+            className: `${CLASS_PREFIX}input`,
+            value: query,
+            placeholder: t('catalogPlaceholder'),
+            onChange: (event) => setQuery(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter') search(query, null)
+            },
+          }),
+          h(
+            'button',
+            { className: `${CLASS_PREFIX}btn`, onClick: () => search(query, null), disabled: state.status === 'loading' },
+            t('catalogSearch'),
+          ),
+        ),
+        state.status === 'loading'
+          ? h('div', { className: `${CLASS_PREFIX}empty` }, t('loading'))
+          : state.status === 'error'
+            ? h('div', { className: `${CLASS_PREFIX}empty` }, `${t('catalogLoadFailed')}: ${state.error}`)
+            : state.status === 'idle'
+              ? null
+              : state.entries.length === 0
+                ? h('div', { className: `${CLASS_PREFIX}empty` }, t('catalogEmpty'))
+                : h(
+                    'div',
+                    { className: `${CLASS_PREFIX}list` },
+                    state.entries.map((entry) =>
+                      h(
+                        'div',
+                        { className: `${CLASS_PREFIX}row`, key: entry.name },
+                        h(
+                          'div',
+                          { className: `${CLASS_PREFIX}rowMain` },
+                          h('span', { className: `${CLASS_PREFIX}name` }, entry.title || entry.name),
+                          h(
+                            'span',
+                            {
+                              className: `${CLASS_PREFIX}tag ${
+                                entry.suggested ? `${CLASS_PREFIX}tagOn` : `${CLASS_PREFIX}tagWarn`
+                              }`,
+                            },
+                            entry.suggested ? entry.suggested.transport : t('catalogCannot'),
+                          ),
+                          h('span', { className: `${CLASS_PREFIX}spacer` }),
+                          h(
+                            'button',
+                            {
+                              className: `${CLASS_PREFIX}btn ${CLASS_PREFIX}btnSm`,
+                              disabled: !entry.suggested || busy !== null,
+                              onClick: () => install(entry),
+                            },
+                            busy === entry.name ? t('busy') : t('catalogInstall'),
+                          ),
+                        ),
+                        h(
+                          'div',
+                          { className: `${CLASS_PREFIX}details` },
+                          h('span', { className: `${CLASS_PREFIX}mono` }, entry.name),
+                          entry.version ? h('span', null, entry.version) : null,
+                          entry.suggested
+                            ? h(
+                                'span',
+                                { className: `${CLASS_PREFIX}mono` },
+                                `${entry.suggested.command || ''} ${(entry.suggested.args || []).join(' ')}`.trim(),
+                              )
+                            : h('span', null, entry.reason || ''),
+                        ),
+                        entry.description ? h('div', { className: `${CLASS_PREFIX}sub` }, entry.description) : null,
+                      ),
+                    ),
+                  ),
+        state.status === 'ready' && state.nextCursor
+          ? h(
+              'div',
+              { className: `${CLASS_PREFIX}bar` },
+              h('span', { className: `${CLASS_PREFIX}spacer` }),
+              h(
+                'button',
+                {
+                  className: `${CLASS_PREFIX}btn ${CLASS_PREFIX}btnSm`,
+                  onClick: () => search(state.query, state.nextCursor),
+                },
+                t('catalogMore'),
+              ),
+            )
+          : null,
+        toast ? h('div', { className: `${CLASS_PREFIX}toast` }, toast) : null,
+      )
+    }
+
+    const TABS = [
+      { id: 'servers', label: 'tabsServers' },
+      { id: 'calls', label: 'tabsCalls' },
+      { id: 'scan', label: 'tabsScan' },
+      { id: 'catalog', label: 'tabsCatalog' },
+    ]
+
+    /**
+     * The page behind both seats: a tab bar over the four views.
+     *
+     * One page rather than four panels, because the seats address exactly one `main` key —
+     * a second page would need a second key and a second sidebar row, and would let the
+     * user end up somewhere they cannot navigate back from.
+     */
+    function McpControlPage(props) {
+      const ctx = props && props.ctx ? props.ctx : null
+      const lang = useLang(ctx)
+      const [tab, setTab] = React.useState('servers')
+      const t = React.useCallback((key) => (TEXT[key] ? TEXT[key][lang] : key), [lang])
+
+      return h(
+        'div',
+        { className: `${CLASS_PREFIX}page` },
+        h(
+          'div',
+          { className: `${CLASS_PREFIX}tabs`, role: 'tablist' },
+          TABS.map((item) =>
+            h(
+              'button',
+              {
+                key: item.id,
+                role: 'tab',
+                'aria-selected': tab === item.id ? 'true' : 'false',
+                className: `${CLASS_PREFIX}tab ${tab === item.id ? `${CLASS_PREFIX}tabOn` : ''}`,
+                onClick: () => setTab(item.id),
+              },
+              t(item.label),
+            ),
+          ),
+        ),
+        tab === 'servers'
+          ? h(ServersPanel, { ctx })
+          : tab === 'calls'
+            ? h(CallsPanel, { ctx })
+            : tab === 'scan'
+              ? h(ScanPanel, { ctx })
+              : h(CatalogPanel, { ctx }),
         h('div', { className: `${CLASS_PREFIX}hint` }, `${PACKAGE} v${VERSION}`),
       )
     }

@@ -66,11 +66,15 @@ test fails first — treat it as the canary, not as a stale test.
 
 ```
 index.js                     host half — the whole HTTP API and the write path
-client.js                    browser half — the settings panel (hand-written CJS closure)
+client.js                    browser half — four views, one panel (hand-written CJS closure)
+lib/patch.js                 patch-row arithmetic: quote, validate, append, remove
+lib/calls.js                 call log: classify, pair tool/call with tool/result, summarize
+lib/scan.js                  read MCP configs from other clients (whitelist only)
+lib/catalog.js               official registry search → installable specs
 cordis.patch.yml             the bundle patch that inserts this plugin's row
 locale/{en,zh}.json          display metadata (meta.title / meta.description)
 icon.svg                     panel icon
-test/                        seven dependency-free suites, run by `npm test`
+test/                        eleven dependency-free suites, run by `npm test`
 tools/publish-release.mjs    release-flow step 5 (tag ≠ Release)
 docs/release-notes-v*.md     one bilingual file per released version
 README.md / README.en.md     user-facing, structurally mirrored
@@ -92,6 +96,10 @@ them against `package.json`'s `test` script and against the README test tables:
 | `test/docs-parity.test.mjs` | bilingual structure, shared numbers, no BOM/CRLF |
 | `test/release-consistency.test.mjs` | test chain ↔ README tables ↔ release notes |
 | `test/panel-entry.test.mjs` | panel seats, state file round trip, slot register/unregister |
+| `test/patch.test.mjs` | install/remove row arithmetic: quoting, indentation, three removal guards |
+| `test/calls.test.mjs` | call classification, call/result pairing, summary arithmetic |
+| `test/scan.test.mjs` | three JSON schemas, TOML extractor, whitelist privacy boundary |
+| `test/catalog.test.mjs` | distribution picking, spec generation, id normalisation |
 
 ## Release flow
 
@@ -163,6 +171,29 @@ there (`--use-system-ca`) for hosts with a certificate-inspecting proxy.
     Read direction (`sanitizePanelEntry`) falls back and never writes back; write
     direction (`writePanelEntry`) refuses with 400 and writes nothing. A corrupt state
     file is reported, not repaired.
+13. **Installing a server means writing the patch file — never mounting at runtime.**
+    `install-server` appends a whole new `- insert:` block to `$DSH_HOME/cordis.patch.yml`
+    and stops there. `@deepseek-ai/dsh-hmr` watches that file and reconciles, so the row
+    comes up without a restart. Do **not** add a `ctx.plugin(mcpClient, …)` path: it would
+    create a second authority over which rows exist, and what it installs would be invisible
+    to `git diff`. The same rule kills the temptation to "helpfully" call
+    `loader.create()` — the patch file is the single source of truth, and the host is the
+    only thing allowed to turn it into running entries.
+14. **`lib/` is in `package.json`'s `files`.** It has to be: `package-contract.test.mjs`
+    only inspects the repository root, so a module under `lib/` that is missing from `files`
+    ships a broken package and **no test notices**. When adding a module under `lib/`, add
+    it to `files` in the same edit.
+15. **The call log writes one line, at settlement.** No running rows on disk. A plugin that
+    writes on `tool/call` and repairs on `tool/result` leaves a permanently running row
+    whenever the process dies in between — the panel then shows a call that has been
+    spinning for a week, and no code path can tell that from a genuinely slow call. Lines
+    are appended (`appendFile`), never read-modify-written: two sessions settling at once
+    would otherwise swallow each other's rows. Pruning is a separate full rewrite.
+16. **The scanner is a whitelist, not a search.** `scanTargets` returns exactly ten known
+    paths; nothing under it may ever walk a home directory looking for configs. The reason
+    is privacy, not speed: a recursive scan drags `.ssh` and project `.env` paths into the
+    candidate set, and the first bug in the parser then leaks them into the panel.
+    `scan.test.mjs` plants files in a fake home directory and asserts they never appear.
 
 ## Install / reload
 

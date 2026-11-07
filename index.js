@@ -26,9 +26,30 @@
  *   - every failure returns JSON, never a non-JSON 500.
  */
 
-import { mkdir, readFile, writeFile, readdir, rename, rm } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, writeFile, readdir, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
+
+import {
+  appendServerBlock,
+  listServerRows,
+  removeServerRows,
+  suggestServerName,
+  validateServerSpec,
+} from './lib/patch.js'
+import {
+  CALL_MEMORY_LIMIT,
+  CALL_PRUNE_EVERY,
+  findPending,
+  parseCallLines,
+  pruneRows,
+  settleRow,
+  startRow,
+  summarizeCalls,
+  toCallLine,
+} from './lib/calls.js'
+import { scanAll } from './lib/scan.js'
+import { cacheFresh, fetchCatalog, specFromEntry } from './lib/catalog.js'
 
 export const name = 'dsh-mcp-control'
 export const inject = ['webServer']
@@ -429,10 +450,24 @@ async function buildSnapshot(ctx) {
     }
   }
 
+  // What the patch file says, so the UI can tell "a row exists but its fiber is gone" from
+  // "there is no row at all" — the first is a broken server, the second is an empty slot.
+  const patch = await readPatchLines(resolveHomePatchPath())
+  const inFile = patch.ok ? listServerRows(patch.lines) : []
+  const fileIds = new Map(inFile.map((row) => [row.id, row]))
+
+  // Per-server call counts, so the list can answer "is anything using this?" without a
+  // second request. Read here rather than cached: the log is small and this route is
+  // user-initiated.
+  const callLog = await readCalls()
+  const callStats = summarizeCalls(pruneRows(callLog.rows))
+  const callsByServer = new Map(callStats.servers.map((row) => [row.server, row]))
+
   const servers = []
   for (const row of rows) {
     const cost = costs.byServer.get(row.serverName)
     const { layers, label } = await inspectLayers(row.rawId, ctx)
+    const calls = callsByServer.get(row.serverName)
     servers.push({
       ...row,
       toolCount: cost?.toolCount ?? 0,
@@ -443,14 +478,21 @@ async function buildSnapshot(ctx) {
         : null,
       layer: label,
       layers,
+      calls: calls ? { calls: calls.calls, failed: calls.failed, avgMs: calls.avgMs } : null,
+      inFile: fileIds.has(row.rawId),
     })
   }
+
+  // Rows the file declares but the loader does not run: usually a config error, and worth
+  // showing rather than hiding behind "no server named that".
+  const orphaned = inFile.filter((row) => !rows.some((live) => live.rawId === row.id))
 
   const enabled = servers.filter((server) => server.enabled)
   const state = await readState()
   return {
     ok: true,
     servers,
+    orphaned,
     totals: {
       servers: servers.length,
       enabled: enabled.length,
@@ -460,8 +502,13 @@ async function buildSnapshot(ctx) {
       mcpEstTokens: costs.totalEstTokens,
       activeEstTokens: enabled.reduce((sum, server) => sum + server.estTokens, 0),
       bytesPerToken: BYTES_PER_TOKEN,
+      calls: callStats.total,
+      callsToday: callStats.today,
+      okRate: callStats.okRate,
     },
+    callStats,
     patchPath: resolveHomePatchPath(),
+    callsPath: resolveCallsPath(),
     layersReadable: servers.every((server) => server.layers.every((layer) => layer.readable)),
     // The client needs the panel seat before it can decide which slot to register, so it
     // rides along on the snapshot it already fetches rather than on a second endpoint.
@@ -646,6 +693,81 @@ function isMcpEntry(entry) {
   return entry?.options?.name === MCP_CLIENT_PLUGIN
 }
 
+/* -------------------------------------------------------------------------- */
+/* call log                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Where the call log lives: `$DSH_HOME/dsh-mcp-control/calls.jsonl`.
+ *
+ * Beside the panel preference, not in it: the state file is a handful of bytes a user may
+ * hand-edit, and mixing an append-only feed into it would make every edit a rewrite of the
+ * whole log.
+ */
+export function resolveCallsPath(env = process.env, home = os.homedir()) {
+  return path.join(resolveDshHome(env, home), 'dsh-mcp-control', 'calls.jsonl')
+}
+
+/** Patch-row id from a foreign server name. Mirrors `suggestIdFromName` in lib/catalog.js. */
+function suggestId(name) {
+  const cleaned = String(name ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+  return cleaned === '' ? 'mcp-server' : cleaned
+}
+
+/** Read the log. A missing file is the ordinary first-run state, not an error. */
+export async function readCalls(env = process.env, home = os.homedir()) {
+  try {
+    const text = await readFile(resolveCallsPath(env, home), 'utf8')
+    return { ok: true, rows: parseCallLines(text) }
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return { ok: true, rows: [] }
+    return { ok: false, rows: [], error: String(error?.message ?? error) }
+  }
+}
+
+/**
+ * Append one settled row.
+ *
+ * `appendFile` rather than read-modify-write: two sessions finishing at the same moment
+ * must not be able to lose each other's row, and the file is the record of what happened.
+ */
+export async function appendCall(row, env = process.env, home = os.homedir()) {
+  const file = resolveCallsPath(env, home)
+  try {
+    await mkdir(path.dirname(file), { recursive: true })
+    await appendFile(file, `${toCallLine(row)}\n`, 'utf8')
+    return { ok: true, file }
+  } catch (error) {
+    return { ok: false, file, error: String(error?.message ?? error) }
+  }
+}
+
+/**
+ * Rewrite the log down to its retention window.
+ *
+ * Called every {@link CALL_PRUNE_EVERY} appends, never per call: the log is a feed, and
+ * a rewrite on every append would turn an O(1) write into an O(n) one for no benefit.
+ */
+export async function rewriteCalls(rows, env = process.env, home = os.homedir()) {
+  const file = resolveCallsPath(env, home)
+  const tmp = `${file}.tmp`
+  try {
+    await mkdir(path.dirname(file), { recursive: true })
+    const text = rows.map((row) => toCallLine(row)).join('\n')
+    await writeFile(tmp, text === '' ? '' : `${text}\n`, 'utf8')
+    await rename(tmp, file)
+    return { ok: true, file, rows: rows.length }
+  } catch (error) {
+    await rm(tmp, { force: true }).catch(() => {})
+    return { ok: false, file, error: String(error?.message ?? error) }
+  }
+}
+
+
 export function apply(ctx) {
   const webServer = ctx.get('webServer')
   if (!webServer) {
@@ -658,6 +780,60 @@ export function apply(ctx) {
       const method = (req.method ?? 'GET').toUpperCase()
 
       if (method === 'GET') {
+        // One route, several views. A second registered path would be a second chance to
+        // collide with a shipped route, and this plugin's whole route surface is one
+        // string in `files`-filtered code — keeping it single is the cheap insurance.
+        const url = new URL(req.url ?? '/', 'http://localhost')
+        const view = url.searchParams.get('view') ?? 'servers'
+
+        if (view === 'calls') {
+          const loaded = await readCalls()
+          const rows = pruneRows(loaded.rows)
+          return send(res, 200, {
+            ok: loaded.ok,
+            view: 'calls',
+            error: loaded.error,
+            file: resolveCallsPath(),
+            rows: rows.slice(-200).reverse(),
+            stats: summarizeCalls(rows),
+            kept: rows.length,
+          })
+        }
+
+        if (view === 'scan') {
+          const scanned = await scanAll()
+          // Every scanned server carries the id DSH would need, because the foreign
+          // configs have no such concept — deriving it once here keeps the browser from
+          // inventing its own collision-prone naming rules.
+          const found = scanned.found.map((row) => ({
+            ...row,
+            servers: row.servers.map((server) => ({
+              ...server,
+              suggested: server.importable
+                ? {
+                    ...server.spec,
+                    id: suggestId(server.id),
+                    serverName: suggestServerName(server.id),
+                  }
+                : null,
+            })),
+          }))
+          return send(res, 200, { ok: true, view: 'scan', ...scanned, found })
+        }
+
+        if (view === 'catalog') {
+          const query = url.searchParams.get('q') ?? ''
+          const cursor = url.searchParams.get('cursor')
+          const result = await fetchCatalog(query, { cursor })
+          // Attach the spec the install button would send, so the browser never has to
+          // re-implement "how a catalog entry becomes a patch row" — one implementation,
+          // in the module that is unit-tested for it.
+          const entries = Array.isArray(result.entries)
+            ? result.entries.map((entry) => ({ ...entry, suggested: specFromEntry(entry) }))
+            : result.entries
+          return send(res, result.ok ? 200 : 502, { view: 'catalog', query, ...result, entries })
+        }
+
         const snapshot = await buildSnapshot(ctx)
         return send(res, snapshot.ok ? 200 : snapshot.status, snapshot)
       }
@@ -732,6 +908,91 @@ export function apply(ctx) {
         })
       }
 
+      // Install: append one `- insert:` block to the HOME patch layer.
+      //
+      // No loader call follows. `dsh-hmr` watches this file and reconciles the profile
+      // when it changes, so the row is composed into the running tree by the host itself —
+      // the same mechanism the toggles already rely on. Doing it by hand through
+      // `loader.create()` would create two authorities for "which rows exist", and the
+      // second one is invisible in `git diff`.
+      if (payload.action === 'install-server') {
+        const spec = payload.spec ?? {}
+        const checked = validateServerSpec(spec)
+        if (!checked.ok) return send(res, 400, { ok: false, error: checked.error })
+
+        const file = resolveHomePatchPath()
+        const existing = await readPatchLines(file)
+        if (!existing.ok) return send(res, 500, { ok: false, error: existing.error })
+
+        const result = appendServerBlock(existing.lines, spec)
+        if (result.mode === 'duplicate') return send(res, 409, { ok: false, error: result.error })
+        if (!result.changed) return send(res, 400, { ok: false, error: result.error ?? 'nothing to write' })
+
+        let text = joinLines(result.lines, existing.crlf)
+        if (!text.endsWith('\n')) text += existing.crlf ? '\r\n' : '\n'
+
+        const backup = await backupPatchFile(file, existing.missing ? '' : joinLines(existing.lines, existing.crlf))
+        try {
+          await writeFile(file, text, 'utf8')
+        } catch (error) {
+          return send(res, 500, { ok: false, error: String(error?.message ?? error) })
+        }
+
+        return send(res, 200, {
+          ok: true,
+          action: 'install-server',
+          id: spec.id,
+          serverName: spec.serverName,
+          patchPath: file,
+          backupPath: backup.ok ? backup.path : undefined,
+        })
+      }
+
+      // Remove: delete every row this plugin wrote for that id
+      // (`@deepseek-ai/dsh-mcp-client` only), then drop the insert block it left empty.
+      if (payload.action === 'remove-server') {
+        const rawId = typeof payload.rawId === 'string' ? payload.rawId.trim() : ''
+        if (!rawId) return send(res, 400, { ok: false, error: 'rawId is required' })
+        if (isLocked(rawId, MCP_CLIENT_PLUGIN)) return send(res, 403, { ok: false, error: `entry is locked: ${rawId}` })
+
+        const file = resolveHomePatchPath()
+        const existing = await readPatchLines(file)
+        if (!existing.ok) return send(res, 500, { ok: false, error: existing.error })
+
+        const result = removeServerRows(existing.lines, rawId)
+        if (!result.changed) return send(res, 404, { ok: false, error: `no row for ${rawId} in the patch file` })
+
+        let text = result.lines.length === 0 ? '' : joinLines(result.lines, existing.crlf)
+        if (text !== '' && !text.endsWith('\n')) text += existing.crlf ? '\r\n' : '\n'
+
+        const backup = await backupPatchFile(file, joinLines(existing.lines, existing.crlf))
+        try {
+          await writeFile(file, text, 'utf8')
+        } catch (error) {
+          return send(res, 500, { ok: false, error: String(error?.message ?? error) })
+        }
+
+        // A row can also still be live in the loader for this session: the HMR reconcile
+        // removes it, but a resolve failure here is not an error worth surfacing — the
+        // file is the truth and the next reconcile reads it.
+        return send(res, 200, {
+          ok: true,
+          action: 'remove-server',
+          rawId,
+          removed: result.removed,
+          patchPath: file,
+          backupPath: backup.ok ? backup.path : undefined,
+        })
+      }
+
+      // Forget the call log. The file is a feed, not a record of truth; clearing it is a
+      // legitimate user request and must not need a manual `rm`.
+      if (payload.action === 'clear-calls') {
+        const cleared = await rewriteCalls([])
+        if (!cleared.ok) return send(res, 500, { ok: false, error: cleared.error })
+        return send(res, 200, { ok: true, action: 'clear-calls', file: cleared.file })
+      }
+
       const entryId = typeof payload.entryId === 'string' ? payload.entryId.trim() : ''
       if (!entryId) return send(res, 403, { ok: false, error: 'entry is not toggleable: ' })
       if (typeof payload.disabled !== 'boolean') {
@@ -796,6 +1057,64 @@ export function apply(ctx) {
       }
     }
   }
+
+  // Call log: watch the session event feed, remember the in-flight MCP/skill calls, and
+  // write one line per call when it settles.
+  //
+  // Only settled calls are written. Writing the "started" row too would let a process that
+  // dies mid-call leave a row that says `running` forever — and a caller that has to
+  // reconcile those is a caller that eventually shows a call spinning for a week.
+  ctx.effect(() => {
+    const pending = []
+    let appended = 0
+    let pruning = false
+
+    const onEvent = (session, event) => {
+      const type = event?.type
+      if (type === 'tool/call') {
+        const row = startRow(session?.id, event)
+        if (row) {
+          pending.push(row)
+          // Bounded: a session that stalls with hundreds of unresolved calls must not grow
+          // this list without limit. The oldest are dropped — a late result for one of them
+          // simply finds no pending row and is ignored, which is what its absence means.
+          while (pending.length > CALL_MEMORY_LIMIT) pending.shift()
+        }
+        return
+      }
+
+      if (type !== 'tool/result') return
+
+      const callId = event?.data?.message?.callId
+      const row = findPending(pending, session?.id, callId)
+      if (!row) return
+      pending.splice(pending.indexOf(row), 1)
+
+      const { settled } = settleRow(row, event?.data)
+      if (!settled) return
+
+      appended += 1
+      void appendCall(row).then((written) => {
+        if (!written.ok) {
+          ctx.logger?.warn?.(`mcp-control: could not append call row: ${written.error}`)
+          return
+        }
+        if (appended % CALL_PRUNE_EVERY !== 0 || pruning) return
+        pruning = true
+        void readCalls()
+          .then((loaded) => {
+            const kept = pruneRows(loaded.rows)
+            return kept.length === loaded.rows.length ? null : rewriteCalls(kept)
+          })
+          .catch(() => {})
+          .finally(() => {
+            pruning = false
+          })
+      })
+    }
+
+    return ctx.on('session/event', onEvent)
+  }, 'mcp-control.calls')
 
   ctx.effect(() => webServer.register({ kind: 'exact', path: ROUTE, handler }), 'mcp-control.route')
 }
