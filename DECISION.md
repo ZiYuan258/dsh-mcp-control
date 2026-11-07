@@ -246,7 +246,7 @@ patch watcher 被唤醒重放一遍组成，为了一个谁都不读的字段。
 - **卸载有三层闸**：只删 body 含 `@deepseek-ai/dsh-mcp-client` 的行、只删空掉之后的
   `- insert:` 块、锁定 id 由调用方拒绝。删完折叠连续空行。
 
-⇒ 新增 55 个测试（`patch` 17 / `calls` 13 / `scan` 11 / `catalog` 14），总数从 84 到 139。
+⇒ 新增 60 个测试（`patch` 17 / `calls` 13 / `scan` 11 / `catalog` 14 / `servers-view` 5），总数从 84 到 144。
 其中 `scan.test.mjs` 有一条专门的隐私用例：假 home 目录里放 `secret.json` 与
 `projects/mcp.json`，断言它们绝不出现在扫描结果里 —— 白名单是隐私边界，不是性能优化。
 

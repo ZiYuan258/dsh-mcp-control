@@ -176,6 +176,17 @@ window.__ModuleLoader__.load({
       catalogMore: { zh: '下一页', en: 'Next page' },
       catalogPrev: { zh: '第一页', en: 'First page' },
 
+      // A row can be in the patch file before the host has mounted it. Without this
+      // section an install looks like it silently did nothing: the server list is built
+      // from loader entries, and a row the host has not picked up yet is not one.
+      orphanedTitle: { zh: '已写入补丁，尚未挂载', en: 'In the patch file, not mounted yet' },
+      orphanedHint: {
+        zh: '这些行已经在 home 补丁文件里。宿主会在下一次配置重载时挂上它们；若一直停在这里，说明这一行没通过校验。',
+        en: 'These rows are already in the home patch file. The host mounts them on its next config reload; a row that stays here did not validate.',
+      },
+      serverCalls: { zh: '调用', en: 'calls' },
+      serverCallsNone: { zh: '暂无调用记录', en: 'No calls recorded' },
+
       installFailed: { zh: '安装失败', en: 'Install failed' },
       remove: { zh: '删除', en: 'Remove' },
       removeConfirm: { zh: '确定要从补丁文件里删掉这一行？', en: 'Remove this row from the patch file?' },
@@ -381,7 +392,7 @@ window.__ModuleLoader__.load({
     function ServersPanel(props) {
       const ctx = props && props.ctx ? props.ctx : null
       const lang = useLang(ctx)
-      const [state, setState] = React.useState({ status: 'loading', servers: [], totals: null, patchPath: '', error: '' })
+      const [state, setState] = React.useState({ status: 'loading', servers: [], orphaned: [], totals: null, patchPath: '', error: '' })
       const [busy, setBusy] = React.useState(null)
       const [onlyEnabled, setOnlyEnabled] = React.useState(false)
       const [toast, setToast] = React.useState(null)
@@ -396,6 +407,7 @@ window.__ModuleLoader__.load({
             setState({
               status: 'error',
               servers: [],
+              orphaned: [],
               totals: null,
               patchPath: '',
               error: (data && data.error) || `HTTP ${response.status}`,
@@ -405,6 +417,7 @@ window.__ModuleLoader__.load({
           setState({
             status: 'ready',
             servers: data.servers || [],
+            orphaned: data.orphaned || [],
             totals: data.totals || null,
             patchPath: data.patchPath || '',
             error: '',
@@ -413,6 +426,7 @@ window.__ModuleLoader__.load({
           setState({
             status: 'error',
             servers: [],
+            orphaned: [],
             totals: null,
             patchPath: '',
             error: String((error && error.message) || error),
@@ -477,6 +491,29 @@ window.__ModuleLoader__.load({
             await load()
           } catch (error) {
             flash(`${t('failed')}: ${String((error && error.message) || error)}`)
+          } finally {
+            setBusy(null)
+          }
+        },
+        [flash, load, t],
+      )
+
+      // A row that exists in the file but never mounted has no switch to flip — the only
+      // useful action is to take the row back out, so the file and the running host stop
+      // disagreeing in the direction the user cannot see.
+      const removeRow = React.useCallback(
+        async (row) => {
+          const ok = typeof window === 'undefined' || typeof window.confirm !== 'function'
+            ? true
+            : window.confirm(`${t('removeConfirm')}\n\n${row.serverName || row.id}`)
+          if (!ok) return
+          setBusy(row.id)
+          try {
+            const data = await postJson({ action: 'remove-server', rawId: row.id })
+            flash(data && data.ok === true ? t('removed') : `${t('installFailed')}: ${(data && data.error) || 'HTTP'}`)
+            await load()
+          } catch (error) {
+            flash(`${t('installFailed')}: ${String((error && error.message) || error)}`)
           } finally {
             setBusy(null)
           }
@@ -660,11 +697,58 @@ window.__ModuleLoader__.load({
                               }B`,
                             )
                           : null,
+                        server.calls
+                          ? h(
+                              'span',
+                              null,
+                              `${t('serverCalls')}: ${server.calls.calls} · ${formatMs(server.calls.avgMs)}`,
+                            )
+                          : h('span', null, t('serverCallsNone')),
                         h('span', null, server.entryId),
                       ),
                     )
                   }),
                 ),
+
+        (state.orphaned || []).length > 0
+          ? h(
+              'div',
+              { className: `${CLASS_PREFIX}group` },
+              h('div', { className: `${CLASS_PREFIX}groupTitle` }, t('orphanedTitle')),
+              h('div', { className: `${CLASS_PREFIX}hint` }, t('orphanedHint')),
+              h(
+                'div',
+                { className: `${CLASS_PREFIX}list` },
+                state.orphaned.map((row) =>
+                  h(
+                    'div',
+                    { className: `${CLASS_PREFIX}row`, key: `orphan-${row.id}` },
+                    h(
+                      'div',
+                      { className: `${CLASS_PREFIX}rowMain` },
+                      h('span', { className: `${CLASS_PREFIX}name` }, row.serverName || row.id),
+                      h('span', { className: `${CLASS_PREFIX}tag ${CLASS_PREFIX}tagWarn` }, t('orphanedTitle')),
+                      h('span', { className: `${CLASS_PREFIX}spacer` }),
+                      h(
+                        'button',
+                        {
+                          className: `${CLASS_PREFIX}btn ${CLASS_PREFIX}btnSm ${CLASS_PREFIX}btnDanger`,
+                          disabled: busy !== null,
+                          onClick: () => removeRow(row),
+                        },
+                        t('remove'),
+                      ),
+                    ),
+                    h(
+                      'div',
+                      { className: `${CLASS_PREFIX}details` },
+                      h('span', null, `${row.transport || 'stdio'} · ${row.id}`),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : null,
 
         state.patchPath
           ? h(

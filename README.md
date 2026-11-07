@@ -265,6 +265,7 @@ test/package-contract.test.mjs     版本一致性、files 白名单、无 @deep
 test/docs-parity.test.mjs          中英 README 章节对齐、发布说明双语结构
 test/release-consistency.test.mjs  每个版本都有发布说明
 test/panel-entry.test.mjs          面板入口：座位词汇、状态文件往返、槽位注册/注销
+test/servers-view.test.mjs        服务器视图：未挂载行、单服务器调用计数
 ```
 
 零依赖，用 Node 内置 `node:test`。

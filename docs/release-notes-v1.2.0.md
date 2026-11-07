@@ -73,10 +73,23 @@ MCP 客户端实例上去。它很省事，但代价是：装的东西**不进�
 这里选择另一条路：**写补丁文件，让宿主自己去挂。** 好处是真相始终在文件里，
 坏处是每次安装都真的落一次盘。这个取舍写在 `DECISION.md` 子决策 7。
 
+### 6. 装完还没挂上的行，会自己出现
+
+安装写的是补丁文件，宿主什么时候把它 reconcile 成运行树是宿主的事。中间这段时间，
+那一行既不在服务器列表里（那列读的是 loader 条目），也还没生效——
+**UI 上看起来就像点了「安装」什么也没发生。**
+
+所以快照里多了一个 `orphaned`：补丁文件里有、运行树里没有的行。
+服务器视图末尾会单列出来，每条带一个「删除」——这种行没有开关可拨，
+唯一有意义的动作是把它拿回去，让文件和宿主别再朝用户看不见的方向互相矛盾。
+「填了这一行但校验不过、一直挂不上」也会停在这里。
+
+顺带把每个服务器的调用计数接进了同一行详情（来自第 1 节那份记录）。
+
 ## 没改什么
 
 开关语义、`estTokens = bytes / 4` 的估算口径、备份与清理策略（保留 10 份、名字带序号）、
-补丁覆盖行的写法和幂等性、以及原有的 84 项测试——全部原样。
+补丁覆盖行的写法和幂等性、以及原有的 84 项测试——全部原样（新测试累加到 144 项）。
 
 ## 升级会不会丢东西
 
@@ -157,6 +170,20 @@ no-op for rows mounted by someone else (the reply carries `stillProvided`).
 This plugin takes the other road: write the patch file and let the host mount it. The truth
 always lives in the file; the cost is that every install really writes to disk. That
 trade-off is recorded as decision 7 in `DECISION.md`.
+
+### 6. A row that is in the file but not mounted shows up
+
+Installing writes the patch file; when the host turns that into a running tree is the
+host's business. In between, the row is in neither the server list (that list reads loader
+entries) nor in effect — **so the UI looked as if Install had done nothing at all.**
+
+The snapshot therefore carries `orphaned`: rows in the patch file that the running tree
+does not have. The servers view lists them separately, each with a Remove button — such a
+row has no switch to flip, and the only useful action is to take it back out so the file
+and the host stop disagreeing in a direction the user cannot see. A row that never
+validates parks here too.
+
+Per-server call counts also joined that row's details (from the record in item 1).
 
 ### Unchanged
 

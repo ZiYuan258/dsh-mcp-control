@@ -66,6 +66,7 @@ rc.5 还新增了 profile 层 `profile:headless`——`inspectLayers` 是 `readd
 | 从别的 MCP 客户端扫描导入 | ✅ 测试（11 项） | `scan.test.mjs`；白名单十个路径，含隐私边界用例 |
 | 官方目录搜索 | ✅ 测试（14 项） | `catalog.test.mjs`；只接 `registry.modelcontextprotocol.io` |
 | 安装 / 卸载服务器（写进补丁文件） | ✅ 测试（17 项） | `patch.test.mjs`；三层删除守卫，装一次再卸一次逐字节还原 |
+| 服务器视图里显示「已写入但未挂载」的行 | ✅ 测试（5 项） | `servers-view.test.mjs`；安装后若宿主还没挂上，行不会凭空消失，可直接删除 |
 
 ## 已知边界（不是 bug，是范围）
 

@@ -49,7 +49,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test test/unit.test.mjs test/patch-contract.test.mjs test/patch.test.mjs test/calls.test.mjs test/scan.test.mjs test/catalog.test.mjs test/write-path.test.mjs test/package-contract.test.mjs test/docs-parity.test.mjs test/release-consistency.test.mjs test/panel-entry.test.mjs"
+    "test": "node --test test/unit.test.mjs test/patch-contract.test.mjs test/patch.test.mjs test/calls.test.mjs test/scan.test.mjs test/catalog.test.mjs test/write-path.test.mjs test/package-contract.test.mjs test/docs-parity.test.mjs test/release-consistency.test.mjs test/panel-entry.test.mjs test/servers-view.test.mjs"
   },
   "dsh": {
     "engines": {

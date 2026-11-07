@@ -316,6 +316,7 @@ test/package-contract.test.mjs     version consistency, files whitelist, no runt
 test/docs-parity.test.mjs          zh/en README section parity, bilingual release-note structure
 test/release-consistency.test.mjs  every version has a release note
 test/panel-entry.test.mjs          panel seats, state-file round trip, slot register/unregister
+test/servers-view.test.mjs        servers view: pending rows, per-server call counts
 ```
 
 Zero dependencies, using Node's built-in `node:test`.
