@@ -97,7 +97,7 @@ MCP 客户端实例上去。它很省事，但代价是：装的东西**不进�
 ## 没改什么
 
 开关语义、`estTokens = bytes / 4` 的估算口径、备份与清理策略（保留 10 份、名字带序号）、
-补丁覆盖行的写法和幂等性、以及原有的 84 项测试——全部原样（新测试累加到 144 项）。
+补丁覆盖行的写法和幂等性、以及原有的 84 项测试——全部原样（新测试累加到 152 项）。
 
 ## 升级会不会丢东西
 
@@ -206,7 +206,7 @@ Per-server call counts also joined that row's details (from the record in item 1
 
 Toggle semantics, the `estTokens = bytes / 4` estimate, backups and pruning (ten copies,
 sequence-suffixed names), the override-row format and its idempotence, and the existing 84
-tests are all untouched.
+tests are all untouched (new tests bring the total to 152).
 
 ### Upgrading
 
