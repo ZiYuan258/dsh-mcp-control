@@ -60,7 +60,8 @@
       "ctx.get",
       "ctx.webServer.register",
       "ctx.loader.entries",
-      "ctx.tools.schemas"
+      "ctx.tools.schemas",
+      "ctx.on"
     ],
     "optional": [
       "ctx.logger"

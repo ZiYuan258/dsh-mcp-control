@@ -156,6 +156,12 @@ test('dsh.requires 里声明的服务在代码里真的被用到', () => {
       assert.match(text, /ctx\.effect\(/, 'dsh.requires 声明了 ctx.effect，但代码里没调用')
       continue
     }
+    if (contract === 'ctx.on') {
+      // ctx.on 是事件订阅，不是服务查找：它在代码里长成 `ctx.on('session/event', …)`，
+      // 走下面的 ctx.get('<service>') 分支会被读成「要一个叫 on 的服务」，永远对不上。
+      assert.match(text, /ctx\.on\(['"]/, 'dsh.requires 声明了 ctx.on，但代码里没有 ctx.on(\'…\')')
+      continue
+    }
     if (contract === 'ctx.get') {
       assert.match(text, /ctx\.get\(/, 'dsh.requires 声明了 ctx.get，但代码里没调用')
       continue
