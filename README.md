@@ -269,7 +269,7 @@ test/write-path.test.mjs           写路径契约：备份、幂等、失败不
 test/package-contract.test.mjs     版本一致性、files 白名单、无 @deepseek-ai 运行时依赖
 test/docs-parity.test.mjs          中英 README 章节对齐、发布说明双语结构
 test/release-consistency.test.mjs  每个版本都有发布说明
-test/panel-entry.test.mjs          面板入口：座位词汇、状态文件往返、槽位注册/注销
+test/panel-entry.test.mjs          面板入口：座位词汇、状态文件往返、槽位注册/注销、谁负责滚
 test/servers-view.test.mjs        服务器视图：未挂载行、单服务器调用计数
 test/catalog-view.test.mjs        目录视图：打开即加载、翻页追加、搜索替换
 ```

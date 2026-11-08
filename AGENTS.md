@@ -95,7 +95,7 @@ them against `package.json`'s `test` script and against the README test tables:
 | `test/package-contract.test.mjs` | manifest: version parity, `files` covers runtime, no deps, CJS shape |
 | `test/docs-parity.test.mjs` | bilingual structure, shared numbers, no BOM/CRLF |
 | `test/release-consistency.test.mjs` | test chain ↔ README tables ↔ release notes |
-| `test/panel-entry.test.mjs` | panel seats, state file round trip, slot register/unregister |
+| `test/panel-entry.test.mjs` | panel seats, state file round trip, slot register/unregister, scrolling owner |
 | `test/patch.test.mjs` | install/remove row arithmetic: quoting, indentation, three removal guards |
 | `test/calls.test.mjs` | call classification, call/result pairing, summary arithmetic |
 | `test/scan.test.mjs` | three JSON schemas, TOML extractor, whitelist privacy boundary |

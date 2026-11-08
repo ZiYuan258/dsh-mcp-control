@@ -1,6 +1,6 @@
 # 项目状态
 
-**当前版本：1.2.0**
+**当前版本：1.2.1**
 **状态：** 已在本机桌面 profile 上安装并实测运行
 **上游：** [`dsh-mcp-toggle`](https://www.npmjs.com/package/dsh-mcp-toggle) v1.0.1（已停更）
 
@@ -61,7 +61,7 @@ rc.5 还新增了 profile 层 `profile:headless`——`inspectLayers` 是 `readd
 | 中英双语界面与文档 | ✅ 已实现 | `docs-parity` 测试守卫 |
 | 补丁语义测试（金丝雀） | ✅ 已用真实模块验证 | 真实 `applyEntryPatches` → `warnings: 0` |
 | 面板在设置里挂载 | ✅ 实测 | `settings.section` 占用者 `mcp-control`（默认座位，order 70；v1.1.0 起可改到侧栏） |
-| 面板入口可换座位（侧栏 / 设置页） | ✅ 测试（19 项） | `panel-entry.test.mjs`；两座位互斥、偏好存 `state.json` |
+| 面板入口可换座位（侧栏 / 设置页） | ✅ 测试（20 项） | `panel-entry.test.mjs`；两座位互斥、偏好存 `state.json`、侧栏座位下面板自己滚 |
 | 调用记录（谁真被调用 / 耗时 / 失败率） | ✅ 测试（13 项） | `calls.test.mjs`；只记 `mcp__*` 与 `skill`，结算时才写盘 |
 | 从别的 MCP 客户端扫描导入 | ✅ 测试（11 项） | `scan.test.mjs`；白名单十个路径，含隐私边界用例 |
 | 官方目录搜索 | ✅ 测试（14 项） | `catalog.test.mjs`；只接 `registry.modelcontextprotocol.io` |
@@ -93,6 +93,17 @@ rc.5 还新增了 profile 层 `profile:headless`——`inspectLayers` 是 `readd
   本机当前是 `link:`（`readlinkSync` 可验），所以改源码立刻到位，
   但宿主侧的 ESM 缓存仍需重启 DSH 才重新求值——见 `AGENTS.md` 的 Install / reload。
 - 被实测的服务器 `rea` 是 HOME 层的一行 `@deepseek-ai/dsh-mcp-client`。
+
+## 1.2.1 为什么是这个号
+
+补丁位 +1。这一版只修一个缺陷：面板入口切到「仅侧栏」以后，页面**滚不动**——内容被裁掉，
+滚轮没有可滚的东西。原因是 `main` 槽的宿主 `.mainPanel` 只有 `flex: 1; min-height: 0`，
+**没有 `overflow`**，而它的祖辈 `.centerCol` 是 `overflow: hidden`：那个座位里没有任何人
+替面板滚。设置页座位相反，节内容已经在一个 `overflow-y: auto` 的容器里，所以同一个页面
+在两个座位下的表现不同。
+
+HTTP API、补丁语义、开关行为、token 估算、安装/卸载、调用记录全部一字未改，所以是补丁号
+而不是 minor。新增 1 项测试覆盖「哪个座位负责滚」，总数 152 → 153。
 
 ## 1.2.0 为什么是这个号
 

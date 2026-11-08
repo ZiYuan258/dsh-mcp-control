@@ -320,7 +320,7 @@ test/write-path.test.mjs           write-path contract: backups, idempotence, no
 test/package-contract.test.mjs     version consistency, files whitelist, no runtime @deepseek-ai dep
 test/docs-parity.test.mjs          zh/en README section parity, bilingual release-note structure
 test/release-consistency.test.mjs  every version has a release note
-test/panel-entry.test.mjs          panel seats, state-file round trip, slot register/unregister
+test/panel-entry.test.mjs          panel seats, state-file round trip, slot register/unregister, scrolling owner
 test/servers-view.test.mjs        servers view: pending rows, per-server call counts
 test/catalog-view.test.mjs        catalog view: loads on open, paging appends, search replaces
 ```
