@@ -334,6 +334,13 @@ window.__ModuleLoader__.load({
     function styles() {
       return `
 .${CLASS_PREFIX}page { display: flex; flex-direction: column; gap: 14px; padding: 4px 0 24px; }
+/* 侧栏座位：main 槽的宿主是 .mainPanel（flex:1; min-height:0; display:flex，没有 overflow），
+   而它的祖辈 .centerCol 是 overflow:hidden。也就是说这个座位里没有任何人替我们滚——
+   面板必须自己当滚动容器，否则超出一屏的内容直接被裁掉（滚轮也滚不动，因为根本没溢出到可滚元素上）。
+   设置页座位不用这套：那里节内容包在 .AnXs9G_options（overflow-y:auto）里，外面已经在滚，
+   再加一层会变成双滚动条。所以这两条只挂在 main 座位上。 */
+.${CLASS_PREFIX}pageMain { flex: 1 1 auto; min-height: 0; padding: 20px 24px 0; gap: 12px; }
+.${CLASS_PREFIX}bodyMain { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; display: flex; flex-direction: column; }
 .${CLASS_PREFIX}intro { color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.6; }
 .${CLASS_PREFIX}bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .${CLASS_PREFIX}spacer { flex: 1 1 auto; }
@@ -1323,13 +1330,29 @@ window.__ModuleLoader__.load({
      */
     function McpControlPage(props) {
       const ctx = props && props.ctx ? props.ctx : null
+      // 两个座位对「谁滚动」的答案不同，所以页面需要知道自己在哪儿：
+      // main 座位里没人替我们滚（宿主只给了一个 flex 容器），得自己滚；
+      // 设置页座位里外面那层 .AnXs9G_options 已经在滚，再加一层就是双滚动条。
+      const inMainSeat = Boolean(props && props.seat === 'main')
       const lang = useLang(ctx)
       const [tab, setTab] = React.useState('servers')
       const t = React.useCallback((key) => (TEXT[key] ? TEXT[key][lang] : key), [lang])
 
+      const body = h(
+        'div',
+        { className: `${CLASS_PREFIX}body${inMainSeat ? ` ${CLASS_PREFIX}bodyMain` : ''}` },
+        tab === 'servers'
+          ? h(ServersPanel, { ctx })
+          : tab === 'calls'
+            ? h(CallsPanel, { ctx })
+            : tab === 'scan'
+              ? h(ScanPanel, { ctx })
+              : h(CatalogPanel, { ctx }),
+      )
+
       return h(
         'div',
-        { className: `${CLASS_PREFIX}page` },
+        { className: `${CLASS_PREFIX}page${inMainSeat ? ` ${CLASS_PREFIX}pageMain` : ''}` },
         h(
           'div',
           { className: `${CLASS_PREFIX}tabs`, role: 'tablist' },
@@ -1347,13 +1370,7 @@ window.__ModuleLoader__.load({
             ),
           ),
         ),
-        tab === 'servers'
-          ? h(ServersPanel, { ctx })
-          : tab === 'calls'
-            ? h(CallsPanel, { ctx })
-            : tab === 'scan'
-              ? h(ScanPanel, { ctx })
-              : h(CatalogPanel, { ctx }),
+        body,
         h('div', { className: `${CLASS_PREFIX}hint` }, `${PACKAGE} v${VERSION}`),
       )
     }
@@ -1503,7 +1520,10 @@ window.__ModuleLoader__.load({
       ctx.effect(
         () =>
           slots.inject('main', () =>
-            slots.register({ name: 'main', key: PANEL_KEY }, () => h(McpControlPage, { ctx })),
+            // `seat: 'main'` tells the page it has to own the scrolling: the main slot's
+            // host is a flex box with no overflow, and its ancestor clips. The settings
+            // seat passes nothing — there the section body already scrolls.
+            slots.register({ name: 'main', key: PANEL_KEY }, () => h(McpControlPage, { ctx, seat: 'main' })),
           ),
         'mcp-control.main-panel',
       )

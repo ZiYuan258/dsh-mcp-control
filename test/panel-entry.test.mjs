@@ -292,6 +292,40 @@ test('the sidebar glyph honours the size the sidebar supplies', async () => {
   assert.equal(glyph.props.viewBox, '0 0 16 16')
 })
 
+test('the main seat owns its scrolling, the settings seat does not', async () => {
+  // The host puts the main slot's panel inside `.mainPanel` (flex:1; min-height:0;
+  // display:flex) whose ancestor clips — nobody scrolls for us there, so the page must.
+  // The settings seat is the opposite: the section body already sits in a scrolling
+  // container, and a second scroller would show two scrollbars.
+  //
+  // Both seats register a thin wrapper that hands the page its seat, so unwrap that first.
+  const render = (row) => {
+    const outer = row.component({ ctx: undefined })
+    return typeof outer.type === 'function' ? outer.type(outer.props) : outer
+  }
+  const bodyOf = (node) =>
+    node.children.find(
+      (child) => child && typeof child !== 'string' && String(child.props && child.props.className).includes('mcc-body'),
+    )
+
+  const { rows } = await boot({ panelEntry: 'sidebar' })
+  const main = render(rowFor(rows, 'main'))
+  assert.match(String(main.props.className), /mcc-pageMain\b/, 'the main seat must take the full height')
+  const mainBody = bodyOf(main)
+  assert.ok(mainBody, 'the page must wrap the active view in a body element')
+  assert.match(String(mainBody.props.className), /mcc-bodyMain\b/, 'the main seat body must scroll')
+
+  // The two seats are mutually exclusive, so the settings page needs its own boot.
+  const settingsRows = (await boot({ panelEntry: 'settings' })).rows
+  const settings = render(rowFor(settingsRows, 'settings.section'))
+  assert.doesNotMatch(String(settings.props.className), /mcc-pageMain\b/, 'the settings seat must not claim the full height')
+  assert.doesNotMatch(
+    String(bodyOf(settings).props.className),
+    /mcc-bodyMain\b/,
+    'the settings body must not scroll twice',
+  )
+})
+
 test('a host that does not answer still leaves the console reachable', async () => {
   const { rows } = await boot({ ok: false })
   assert.ok(rowFor(rows, 'settings.section'), 'the fallback seat must be registered')
