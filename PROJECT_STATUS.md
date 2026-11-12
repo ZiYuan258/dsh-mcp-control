@@ -38,6 +38,33 @@ rc.5 还新增了 profile 层 `profile:headless`——`inspectLayers` 是 `readd
 `sidebar.panellist` 的 `mcp-control` order 21 active、`main` 键 `mcp-control` active、
 `plugins.bundle.config` 键 `dsh-mcp-control` active、`settings.section` 里**没有** `mcp-control`
 （座位在侧栏，互斥成立）。**结论：无需适配，代码零改动。**）
+｜ DSH **0.2.2-rc.2** ✅（2026-11-12 复验：`cordis-plugin-include` 1.1.0 与 `cordis-plugin-loader`
+1.1.0 与 rc.1 时期 dump **逐字节相同**（23265 B / 28635 B，sha256 前 16 位 `067dbc75da6d18e2` /
+`4f0a93a1ef5bb09b`），`applyEntryPatches` 仍以别名导出。**只有 `dsh-mcp-client` 变了**：
+0.2.2-rc.1 → 0.2.2-rc.2，35189 B → 59920 B（+24731），是传输生命周期的一次内部重写
+（新增 `McpGeneration` 代际对象：`lifetime` AbortController、`pending` 任务集、`closed`
+延迟确认、`closeTimeoutMs` 预算，以及把「失败代际能否确认传输已关闭」作为重连前提——
+rc.1 已经因为重叠 server 进程而主动停重连，rc.2 把这套逻辑结构化）。
+**但本插件读到的每一条接口都没动**：`publicToolName(serverName, rawName)` 与 rc.1 逐字符相同
+（仍是 `` `mcp__${serverName}__${rawName}` ``，超长/非法才替换字符并追加 12 位 sha256），
+`SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/` 未变（与本插件 `lib/patch.js` 的副本一致）、
+Config schema 仍是 stdio / streamable-http 两支、`ctx.tools.register` 仍返回 disposer 且
+`previous.values().forEach(dispose)` 的注销路径原样（「关掉=真注销」前提未变）、rc.5 加的
+`resources` 能力守卫仍在（`lib/index.js:1103`）、配置里新增的三个字段
+（`startupTimeoutMs` / `closeTimeoutMs` / `expandTemplates`）全是**可选增量**，本插件从不写它们。
+HMR 侧也照旧：`dsh-hmr@0.2.2-rc.2` 仍在 `watchConfig` 里监听
+`[profile.patchPath, join(profile.home, 'cordis.patch.yml')]` —— 安装/卸载「写补丁文件即可热生效」
+的路径成立；`dsh-app-boot` 的补丁层顺序（bundle → profile → home → overlays）未变；
+`dsh-tools` 仍有 `schemas()`；`dsh-client-modules` 仍提供 `/plugins` 前缀路由与 `fetchBundle`。
+实测：**153/153 测试通过**；面板路由 `GET /` 401、`GET /mcp-control/api` 200；live 快照
+`panelEntry: sidebar` 跨重启存活、`orphaned: []`、三个 server 的 `inFile` 判定正确
+（home 层两个 `true`、profile 层的 `windows-mcp-bridge` `false`）；真实 applier dry-run →
+`warnings: 0`、`row resolved: YES`、`disabled: true`、`name`/`config` 原样、home patch 逐字节未变、
+二次 toggle 恰好一行 override；四个槽位 live：`sidebar.panellist` 的 `mcp-control` order 21 active、
+`main` 键 `mcp-control` active、`plugins.bundle.config` 键 `dsh-mcp-control` active、
+`settings.section` 里**没有** `mcp-control`（座位在侧栏，互斥成立）；loader 条目
+`include:mcp-control`（patchId `mcp-control`）在 `Config.listConfigs` 里可见。
+**结论：无需适配，代码零改动。**）
 
 ---
 
